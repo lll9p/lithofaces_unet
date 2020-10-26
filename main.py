@@ -3,6 +3,7 @@ import os
 from collections import OrderedDict
 from glob import glob
 
+import cv2
 import pandas as pd
 import torch
 import torch.backends.cudnn as cudnn
@@ -14,12 +15,12 @@ from albumentations.core.composition import Compose, OneOf
 from sklearn.model_selection import train_test_split
 from torch.optim import lr_scheduler
 from tqdm.autonotebook import tqdm
-import cv2
 
 import losses
 import models
-from dataset import Dataset
+from dataset import Dataset, get_datasets
 from utils import AverageMeter, iou_score, parse_args, str2bool
+import pathlib
 
 MODELS = models.__all__
 LOSSES = losses.__all__
@@ -28,14 +29,14 @@ config = dict(
     name=None,  # model_name+timestamp
     epochs=100,
     batch_size=16,
-    model='UNet_3Plus_DeepSup',
+    model='Nested_UNet',
     deep_supervision=False,
     input_channels=3,
     num_classes=1,
     input_wide=256,
     input_height=256,
     loss='BCE_loss',
-    dataset='minerals_256',
+    dataset='minerals_224',
     optimizer='Adam',
     learning_rate=1e-3,
     momentum=0.9,
@@ -56,6 +57,8 @@ config = dict(
 
 class Model():
     def __init__(self, config=config, model='UNet_3Plus_DeepSup'):
+        self.root = pathlib.Path(
+            '/kaggle/input/lithofaces-dataset-generate/data_256/')
         if config['name'] is None:
             name = f'{config["dataset"]}_{config["model"]}'
             config['name'] = name + \
@@ -118,53 +121,11 @@ class Model():
     def setup_dataset(self):
         # Data loading code
         config = self.config
-        img_ids = glob(os.path.join(
-            'inputs', config['dataset'], 'images', '*' + '.png'))
-        img_ids = [os.path.splitext(os.path.basename(p))[0] for p in img_ids]
-
-        train_img_ids, val_img_ids = train_test_split(
-            img_ids, test_size=0.1, random_state=42)
-
-        # 数据增强
-        train_transform = Compose([
-            # transforms.ElasticTransform(),
-            transforms.ChannelShuffle(),
-            transforms.Transpose(),
-            transforms.RandomRotate90(),
-            transforms.Flip(),
-            transforms.VerticalFlip(),
-            # transforms.Rotate(),
-            OneOf([
-                transforms.Equalize(),
-                transforms.HueSaturationValue(),
-                transforms.RandomBrightness(),
-                transforms.RandomContrast(),
-            ], p=1),
-            transforms.Resize(config['input_height'], config['input_wide']),
-            transforms.Normalize(),
-        ])
-
-        val_transform = Compose([
-            transforms.Resize(config['input_height'], config['input_wide']),
-            transforms.Normalize(),
-        ])
-
+        datasets = get_datasets(path=self.root)
         train_dataset = Dataset(
-            img_ids=train_img_ids,
-            img_dir=os.path.join('inputs', config['dataset'], 'images'),
-            mask_dir=os.path.join('inputs', config['dataset'], 'masks'),
-            img_ext='.png',
-            mask_ext='.png',
-            num_classes=config['num_classes'],
-            transform=train_transform)
+            datasets['train'], root=self.root, mode='train')
         val_dataset = Dataset(
-            img_ids=val_img_ids,
-            img_dir=os.path.join('inputs', config['dataset'], 'images'),
-            mask_dir=os.path.join('inputs', config['dataset'], 'masks'),
-            img_ext='.png',
-            mask_ext='.png',
-            num_classes=config['num_classes'],
-            transform=val_transform)
+            datasets['val'], root=self.root, mode='val')
 
         self.train_loader = torch.utils.data.DataLoader(
             train_dataset,
