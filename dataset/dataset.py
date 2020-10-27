@@ -73,13 +73,13 @@ def get_data(path=None, index='23-44_0_0'):
                           cv2.IMREAD_UNCHANGED)
         if temp is None:
             temp = np.zeros((256, 256))
-        masks.append(crop(temp, crop_index, aug_index))
+        masks.append(crop(temp, crop_index, aug_index)/10.0)
     for mask_name in minerals:
         temp = cv2.imread(f"{base}/masks/i{mask_name}.png",
                           cv2.IMREAD_UNCHANGED)
         if temp is None:
             temp = np.zeros((256, 256))
-        masks.append(crop(temp, crop_index, aug_index))
+        masks.append(crop(temp, crop_index, aug_index)/10.0)
     edges = cv2.imread(f"{base}/masks/edges.png", cv2.IMREAD_UNCHANGED)
     if edges is None:
         edges = np.zeros((256, 256))

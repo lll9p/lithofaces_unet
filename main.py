@@ -29,13 +29,13 @@ config = dict(
     name=None,  # model_name+timestamp
     epochs=100,
     batch_size=16,
-    model='Nested_UNet',
+    model='NestedUNet',
     deep_supervision=False,
     input_channels=3,
-    num_classes=1,
-    input_wide=256,
-    input_height=256,
-    loss='BCE_loss',
+    num_classes=11,
+    input_wide=224,
+    input_height=224,
+    loss='BCEDiceLoss',
     dataset='minerals_224',
     optimizer='Adam',
     learning_rate=1e-3,
@@ -123,9 +123,9 @@ class Model():
         config = self.config
         datasets = get_datasets(path=self.root)
         train_dataset = Dataset(
-            datasets['train'], root=self.root, mode='train')
+            datasets, root=self.root, mode='train')
         val_dataset = Dataset(
-            datasets['val'], root=self.root, mode='val')
+            datasets, root=self.root, mode='val')
 
         self.train_loader = torch.utils.data.DataLoader(
             train_dataset,
@@ -397,3 +397,5 @@ class Model():
         print('IoU: %.4f' % avg_meter.avg)
 
         torch.cuda.empty_cache()
+if __name__ == "__main__":
+    pass
