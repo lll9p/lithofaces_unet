@@ -245,7 +245,7 @@ class Model():
         return OrderedDict([('loss', avg_meters['loss'].avg),
                             ('iou', avg_meters['iou'].avg)])
 
-    def train_model(self):
+    def train(self):
         config = self.config
         log = OrderedDict([
             ('epoch', []),
@@ -317,7 +317,7 @@ class Model():
         pbar_train.close()
         pbar_train.close()
 
-    def model_validate(self):
+    def validate(self):
         with open(f'models/{self.config["name"]}/config.yml', 'r') as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
 
