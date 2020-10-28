@@ -103,6 +103,7 @@ class Model():
             batch_size=config.batch_size,
             shuffle=True,
             num_workers=config.num_workers,
+            pin_memory=True,
             drop_last=True)
         self.val_loader = torch.utils.data.DataLoader(
             val_dataset,
