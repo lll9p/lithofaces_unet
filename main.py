@@ -23,8 +23,6 @@ class Model():
         if config is None:
             config = parse_args().parse_args()
         self.root = pathlib.Path(config.path)
-        print(config)
-        exit()
         if config.name is None:
             name = f'{config.dataset}_{config.model}'
             config.name = name + \
