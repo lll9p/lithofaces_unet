@@ -16,7 +16,7 @@ def parse_args():
                         help='model name: (default: model+timestamp)')
     parser.add_argument('--epochs', default=100, type=int, metavar='N',
                         help='number of total epochs to run')
-    parser.add_argument('-b', '--batch_size', default=16, type=int,
+    parser.add_argument('--batch_size', '-b', default=16, type=int,
                         metavar='N', help='mini-batch size (default: 16)')
 
     # model
@@ -58,7 +58,7 @@ def parse_args():
                         help='loss: ' +
                         ' | '.join(['Adam', 'SGD']) +
                         ' (default: Adam)')
-    parser.add_argument('--lr', '--learning_rate', default=1e-3, type=float,
+    parser.add_argument('--learning_rate', '--lr', default=1e-3, type=float,
                         metavar='LR', help='initial learning rate')
     parser.add_argument('--momentum', default=0.9, type=float,
                         help='momentum')
