@@ -1,17 +1,12 @@
-import argparse
 import os
 from collections import OrderedDict
-from glob import glob
 
 import cv2
 import pandas as pd
 import torch
 import torch.backends.cudnn as cudnn
-import torch.nn as nn
 import torch.optim as optim
 import yaml
-from albumentations.augmentations import transforms
-from albumentations.core.composition import Compose, OneOf
 from sklearn.model_selection import train_test_split
 from torch.optim import lr_scheduler
 from tqdm.autonotebook import tqdm
@@ -22,94 +17,70 @@ from dataset import Dataset, get_datasets
 from utils import AverageMeter, iou_score, parse_args, str2bool
 import pathlib
 
-MODELS = models.__all__
-LOSSES = losses.__all__
-
-config = dict(
-    name=None,  # model_name+timestamp
-    epochs=100,
-    batch_size=16,
-    model='NestedUNet',
-    deep_supervision=False,
-    input_channels=3,
-    num_classes=11,
-    input_wide=224,
-    input_height=224,
-    loss='BCEDiceLoss',
-    dataset='minerals_224',
-    optimizer='Adam',
-    learning_rate=1e-3,
-    momentum=0.9,
-    weight_decay=1e-4,
-    nesterov=False,
-    # scheduler
-    # ['CosineAnnealingLR', 'ReduceLROnPlateau', 'MultiStepLR', 'ConstantLR'])
-    scheduler='CosineAnnealingLR',
-    min_learning_rate=1e-5,
-    factor=0.1,
-    patience=2,
-    milestones='1,2',
-    gamma=2/3,
-    early_stopping=-1,
-    num_workers=12
-)
-
 
 class Model():
-    def __init__(self, config=config, model='UNet_3Plus_DeepSup'):
-        self.root = pathlib.Path(
-            '/kaggle/input/lithofaces-dataset-generate/data_256/')
-        if config['name'] is None:
-            name = f'{config["dataset"]}_{config["model"]}'
-            config['name'] = name + \
-                ('_wDS' if config['deep_supervision'] else '_woDS')
-        os.makedirs(f'models/{config["name"]}', exist_ok=True)
+    def __init__(self, config=None, model='UNet_3Plus_DeepSup'):
+        if config is None:
+            config = parse_args().parse_args()
+        self.root = pathlib.Path(config.path)
+        print(config)
+        exit()
+        if config.name is None:
+            name = f'{config.dataset}_{config.model}'
+            config.name = name + \
+                ('_wDS' if config.deep_supervision else '_woDS')
+        os.makedirs(f'models/{config.name}', exist_ok=True)
         print('-' * 20)
         for key in config:
-            print(f'{key}: {config[key]}')
+            print(f'{key}: {config.__dict__[key]}')
         print('-' * 20)
-        with open('models/%s/config.yml' % config['name'], 'w') as f:
+        with open('models/%s/config.yml' % config.name, 'w') as f:
             yaml.dump(config, f)
         # Defile loss function(criterion)
-        self.criterion = losses.__dict__[config['loss']]().cuda()
+        self.criterion = losses.__dict__[config.loss]().cuda()
 
         cudnn.benchmark = True
 
         # Create model
-        print("=>Ccreating model {config['model']}")
-        num_classes, input_channels, deep_supervision = config[
-            'num_classes'], config['input_channels'], config['deep_supervision']
-        model = models.__dict__[config['model']](num_classes,
-                                                 input_channels,
-                                                 deep_supervision)
+        print("=>Ccreating model {config.model}")
+        (num_classes,
+         input_channels,
+         deep_supervision) = (config.num_classes,
+                              config.input_channels,
+                              config.deep_supervision)
+        model = models.__dict__[config.model](num_classes,
+                                              input_channels,
+                                              deep_supervision)
         self.model = model.cuda()
         params = filter(lambda p: p.requires_grad,
                         self.model.parameters())
-        if config['optimizer'] == 'Adam':
+        if config.optimizer == 'Adam':
             optimizer = optim.Adam(
-                params, lr=config['learning_rate'],
-                weight_decay=config['weight_decay'])
-        elif config['optimizer'] == 'SGD':
-            optimizer = optim.SGD(params, lr=config['learning_rate'],
-                                  momentum=config['momentum'],
-                                  nesterov=config['nesterov'],
-                                  weight_decay=config['weight_decay'])
+                params, lr=config.learning_rate,
+                weight_decay=config.weight_decay)
+        elif config.optimizer == 'SGD':
+            optimizer = optim.SGD(params, lr=config.learning_rate,
+                                  momentum=config.momentum,
+                                  nesterov=config.nesterov,
+                                  weight_decay=config.weight_decay)
         else:
             raise NotImplementedError
-        if config['scheduler'] == 'CosineAnnealingLR':
+        if config.scheduler == 'CosineAnnealingLR':
             scheduler = lr_scheduler.CosineAnnealingLR(
-                optimizer, T_max=config['epochs'],
-                eta_min=config['min_learning_rate'])
-        elif config['scheduler'] == 'ReduceLROnPlateau':
+                optimizer, T_max=config.epochs,
+                eta_min=config.min_learning_rate)
+        elif config.scheduler == 'ReduceLROnPlateau':
             scheduler = lr_scheduler.ReduceLROnPlateau(optimizer,
-                                                       factor=config['factor'],
-                                                       patience=config['patience'],
+                                                       factor=config.factor,
+                                                       patience=config.patience,
                                                        verbose=1,
-                                                       min_lr=config['min_learning_rate'])
-        elif config['scheduler'] == 'MultiStepLR':
+                                                       min_lr=config.min_learning_rate)
+        elif config.scheduler == 'MultiStepLR':
             scheduler = lr_scheduler.MultiStepLR(optimizer,
-                                                 milestones=[int(e) for e in config['milestones'].split(',')], gamma=config['gamma'])
-        elif config['scheduler'] == 'ConstantLR':
+                                                 milestones=[
+                                                     int(e) for e in config.milestones.split(',')],
+                                                 gamma=config.gamma)
+        elif config.scheduler == 'ConstantLR':
             scheduler = None
         else:
             raise NotImplementedError
@@ -126,18 +97,26 @@ class Model():
             datasets, root=self.root, mode='train')
         val_dataset = Dataset(
             datasets, root=self.root, mode='val')
+        test_dataset = Dataset(
+            datasets, root=self.root, mode='test')
 
         self.train_loader = torch.utils.data.DataLoader(
             train_dataset,
-            batch_size=config['batch_size'],
+            batch_size=config.batch_size,
             shuffle=True,
-            num_workers=config['num_workers'],
+            num_workers=config.num_workers,
             drop_last=True)
         self.val_loader = torch.utils.data.DataLoader(
             val_dataset,
-            batch_size=config['batch_size'],
+            batch_size=config.batch_size,
             shuffle=False,
-            num_workers=config['num_workers'],
+            num_workers=config.num_workers,
+            drop_last=False)
+        self.test_loader = torch.utils.data.DataLoader(
+            test_dataset,
+            batch_size=config.batch_size,
+            shuffle=False,
+            num_workers=config.num_workers,
             drop_last=False)
 
     def train_epoch(self, train_loader, pbar):
@@ -157,11 +136,11 @@ class Model():
             # output shape is[batch_size, nb_classes, height, width]
             # (16, 1, 256, 256)
             # https://discuss.pytorch.org/t/weighted-pixelwise-nllloss2d/7766/6
-            if self.config['deep_supervision']:
+            if self.config.deep_supervision:
                 outputs = self.model(input)
                 loss = 0
                 for output in outputs:
-                    if self.config["loss"] == "MSSSIM":
+                    if self.config.loss == "MSSSIM":
                         loss -= self.criterion(output, target)
                     else:
                         loss += self.criterion(output, target)
@@ -169,7 +148,7 @@ class Model():
                 iou = iou_score(outputs[-1], target)
             else:
                 output = self.model(input)
-                if self.config["loss"] == "MSSSIM":
+                if self.config.loss == "MSSSIM":
                     loss = -self.criterion(output, target)
                 else:
                     loss = self.criterion(output, target)
@@ -213,11 +192,11 @@ class Model():
                 target = target.cuda()
 
                 # compute output
-                if config['deep_supervision']:
+                if config.deep_supervision:
                     outputs = self.model(input)
                     loss = 0
                     for output in outputs:
-                        if self.config["loss"] == "MSSSIM":
+                        if config.loss == "MSSSIM":
                             loss -= self.criterion(output, target)
                         else:
                             loss += self.criterion(output, target)
@@ -225,7 +204,7 @@ class Model():
                     iou = iou_score(outputs[-1], target)
                 else:
                     output = self.model(input)
-                    if self.config["loss"] == "MSSSIM":
+                    if config.loss == "MSSSIM":
                         loss = -self.criterion(output, target)
                     else:
                         loss = self.criterion(output, target)
@@ -259,16 +238,16 @@ class Model():
         best_iou = 0
         trigger = 0
         pbar = tqdm(desc="Trainning",
-                    total=config['epochs'], position=0, leave=True)
+                    total=config.epochs, position=0, leave=True)
         pbar_train = tqdm(desc="Train epoch", position=1, leave=True)
         pbar_val = tqdm(desc="Validate epoch", position=1, leave=True)
-        for epoch in range(config['epochs']):
+        for epoch in range(config.epochs):
             pbar_train.reset()
-            pbar_train.reset()
+            pbar_val.reset()
             if epoch <= 2:
-                pbar.display(f'Epoch [{epoch}/{config["epochs"]}]')
+                pbar.display(f'Epoch [{epoch}/{config.epochs}]')
             else:
-                pbar.display(f'Epoch [{epoch}/{config["epochs"]}]' +
+                pbar.display(f'Epoch [{epoch}/{config.epochs}]' +
                              f'Loss {log["loss"][-1]:.4f} - ' +
                              f'IOU {log["iou"][-1]:.4f} - ' +
                              f'var_Loss {log["val_loss"][-1]:.4f} - ' +
@@ -280,35 +259,32 @@ class Model():
             # evaluate on validation set
             val_log = self.validate_epoch(self.val_loader, pbar_val)
 
-            if config['scheduler'] == 'CosineAnnealingLR':
+            if config.scheduler == 'CosineAnnealingLR':
                 self.scheduler.step()
-            elif config['scheduler'] == 'ReduceLROnPlateau':
+            elif config.scheduler == 'ReduceLROnPlateau':
                 self.scheduler.step(val_log['loss'])
 
-            # pbar.display('loss %.4f - iou %.4f - val_loss %.4f - val_iou %.4f'
-            #             % (train_log['loss'], train_log['iou'], val_log['loss'], val_log['iou']))
-
             log['epoch'].append(epoch)
-            log['lr'].append(config['learning_rate'])
+            log['lr'].append(config.learning_rate)
             log['loss'].append(train_log['loss'])
             log['iou'].append(train_log['iou'])
             log['val_loss'].append(val_log['loss'])
             log['val_iou'].append(val_log['iou'])
 
-            pd.DataFrame(log).to_csv('models/%s/log.csv' %
-                                     config['name'], index=False)
+            pd.DataFrame(log).to_csv(
+                f'models/{config.name}/log.csv', index=False)
 
             trigger += 1
 
             if val_log['iou'] > best_iou:
                 torch.save(self.model.state_dict(), 'models/%s/model.pth' %
-                           config['name'])
+                           config.name)
                 best_iou = val_log['iou']
                 #pbar.display("=> saved best model")
                 trigger = 0
 
             # early stopping
-            if config['early_stopping'] >= 0 and trigger >= config['early_stopping']:
+            if config.early_stopping >= 0 and trigger >= config.early_stopping:
                 pbar.display("=> early stopping")
                 break
             pbar.update(1)
@@ -317,69 +293,42 @@ class Model():
         pbar_train.close()
         pbar_train.close()
 
-    def validate(self):
-        with open(f'models/{self.config["name"]}/config.yml', 'r') as f:
+    def test(self):
+        config = self.config
+        with open(f'models/{config.name}/config.yml', 'r') as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
 
         print('-'*20)
         for key in config.keys():
-            print('%s: %s' % (key, str(config[key])))
+            print('%s: %s' % (key, str(config.__dict__[key])))
         print('-'*20)
 
         cudnn.benchmark = True
 
         # create model
-        print("=> creating model %s" % config['model'])
-        model = models.__dict__[config['model']](config['num_classes'],
-                                                 config['input_channels'],
-                                                 config['deep_supervision'])
+        print(f"=> creating model {config.model}")
+        model = models.__dict__[config.model](config.num_classes,
+                                              config.input_channels,
+                                              config.deep_supervision)
 
         model = model.cuda()
 
-        # Data loading code
-        img_ids = glob(os.path.join(
-            'inputs', config['dataset'], 'images', '*' + ".png"))
-        img_ids = [os.path.splitext(os.path.basename(p))[0] for p in img_ids]
-
-        _, val_img_ids = train_test_split(
-            img_ids, test_size=0.2, random_state=41)
-
-        model.load_state_dict(torch.load('models/%s/model.pth' %
-                                         config['name']))
+        model.load_state_dict(torch.load(f'models/{config.name}/model.pth'
+                                         ))
         model.eval()
-
-        val_transform = Compose([
-            transforms.Resize(config['input_height'], config['input_wide']),
-            transforms.Normalize(),
-        ])
-
-        val_dataset = Dataset(
-            img_ids=val_img_ids,
-            img_dir=os.path.join('inputs', config['dataset'], 'images'),
-            mask_dir=os.path.join('inputs', config['dataset'], 'masks'),
-            img_ext='.png',
-            mask_ext='.png',
-            num_classes=config['num_classes'],
-            transform=val_transform)
-        val_loader = torch.utils.data.DataLoader(
-            val_dataset,
-            batch_size=config['batch_size'],
-            shuffle=False,
-            num_workers=config['num_workers'],
-            drop_last=False)
 
         avg_meter = AverageMeter()
 
-        for c in range(config['num_classes']):
+        for c in range(config.num_classes):
             os.makedirs(os.path.join(
-                'outputs', config['name'], str(c)), exist_ok=True)
+                'outputs', config.name, str(c)), exist_ok=True)
         with torch.no_grad():
-            for input, target, meta in tqdm(val_loader, total=len(val_loader)):
+            for input, target, meta in tqdm(self.test_loader, total=len(self.test_loader)):
                 input = input.cuda()
                 target = target.cuda()
 
                 # compute output
-                if config['deep_supervision']:
+                if config.deep_supervision:
                     output = model(input)[-1]
                 else:
                     output = model(input)
@@ -390,12 +339,16 @@ class Model():
                 output = torch.sigmoid(output).cpu().numpy()
 
                 for i in range(len(output)):
-                    for c in range(config['num_classes']):
-                        cv2.imwrite(os.path.join('outputs', config['name'], str(c), meta['img_id'][i] + '.jpg'),
+                    for c in range(config.num_classes):
+                        cv2.imwrite(os.path.join('outputs', config.name, str(c), meta['img_id'][i] + '.jpg'),
                                     (output[i, c] * 255).astype('uint8'))
 
         print('IoU: %.4f' % avg_meter.avg)
 
         torch.cuda.empty_cache()
+
+
 if __name__ == "__main__":
-    pass
+    model = Model()
+    model.setup_dataset()
+    model.train()

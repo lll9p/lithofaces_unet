@@ -10,7 +10,7 @@ from torch.utils import data
 from torchvision import transforms
 
 
-def get_datasets(path=pathlib.Path('/kaggle/input/lithofaces-dataset-generate/data_256/')):
+def get_datasets(path=None):
     image_folders = sorted(
         path.iterdir(), key=lambda path_: path_.name.split("-")[0])
     train_folders, test_folders = train_test_split(
@@ -73,17 +73,17 @@ def get_data(path=None, index='23-44_0_0'):
                           cv2.IMREAD_UNCHANGED)
         if temp is None:
             temp = np.zeros((256, 256))
-        masks.append(crop(temp, crop_index, aug_index)/50.0)
+        masks.append(crop(temp, crop_index, aug_index)/3.0)
     for mask_name in minerals:
         temp = cv2.imread(f"{base}/masks/i{mask_name}.png",
                           cv2.IMREAD_UNCHANGED)
         if temp is None:
             temp = np.zeros((256, 256))
-        masks.append(crop(temp, crop_index, aug_index)/25.0)
+        masks.append(crop(temp, crop_index, aug_index)/3.0)
     edges = cv2.imread(f"{base}/masks/edges.png", cv2.IMREAD_UNCHANGED)
     if edges is None:
         edges = np.zeros((256, 256))
-    masks.append(crop(edges, crop_index, aug_index))
+    masks.append(crop(edges, crop_index, aug_index)/1.0)
     return image, np.stack(masks)
 
 
@@ -116,7 +116,7 @@ class Dataset(data.Dataset):
         image, masks = get_data(path=self.root, index=self.dataset[index])
         if self.transform is not None:
             image = self.transform(image)
-#         img = img.astype('float32') / 255
+        image = image.astype('float32')
 #         img = img.transpose(2, 0, 1)
         masks = masks.astype('float32')
 #         mask = mask.transpose(2, 0, 1)
