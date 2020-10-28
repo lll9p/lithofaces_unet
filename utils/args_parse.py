@@ -51,6 +51,9 @@ def parse_args():
                         help='image file extension')
     parser.add_argument('--mask_ext', default='.png',
                         help='mask file extension')
+    parser.add_argument('--labels', default=["Alite", "Blite", "C3A", "fCaO", "Pore", "iAlite", "iBlite", "iC3A", "ifCaO", "iPore", "edges"],
+                        type=lambda s: s.split(",")
+                        help='mask file extension')
 
     # optimizer
     parser.add_argument('--optimizer', default='Adam',

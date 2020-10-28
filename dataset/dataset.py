@@ -60,36 +60,26 @@ def crop(image, crop_index, aug_index):
     return aug_funcs[aug_index](crop_image)
 
 
-def get_data(path=None, index='23-44_0_0'):
+def get_data(path=None, index='23-44_0_0', labels=None):
     image_path, crop_index, aug_index = index.split("_")
     base = str(path/f"{image_path}")
     image = cv2.imread(f"{base}/images/{image_path}.png")
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
     image = crop(image, crop_index, aug_index)
     masks = []
-    minerals = ["Alite", "Blite", "C3A", "fCaO", "Pore"]
-    for mask_name in minerals:
+    for mask_name in labels:
         temp = cv2.imread(f"{base}/masks/{mask_name}.png",
                           cv2.IMREAD_UNCHANGED)
         if temp is None:
             temp = np.zeros((256, 256))
-        masks.append(crop(temp, crop_index, aug_index)/3.0)
-    for mask_name in minerals:
-        temp = cv2.imread(f"{base}/masks/i{mask_name}.png",
-                          cv2.IMREAD_UNCHANGED)
-        if temp is None:
-            temp = np.zeros((256, 256))
-        masks.append(crop(temp, crop_index, aug_index)/3.0)
-    edges = cv2.imread(f"{base}/masks/edges.png", cv2.IMREAD_UNCHANGED)
-    if edges is None:
-        edges = np.zeros((256, 256))
-    masks.append(crop(edges, crop_index, aug_index)/1.0)
+        masks.append(crop(temp, crop_index, aug_index))
     return image, np.stack(masks)
 
 
 class Dataset(data.Dataset):
-    def __init__(self, dataset, root, mode='train', classes=list(range(11))):
+    def __init__(self, dataset, root, mode='train', classes=list(range(11)), labels=None):
         self.root = root
+        self.labels = labels
         self.dataset = dataset[mode]
         if mode == 'train':
             self.transform = transforms.Compose([
@@ -113,7 +103,8 @@ class Dataset(data.Dataset):
             ])
 
     def __getitem__(self, index):
-        image, masks = get_data(path=self.root, index=self.dataset[index])
+        image, masks = get_data(
+            path=self.root, index=self.dataset[index], labels=self.labels)
         if self.transform is not None:
             image = self.transform(image)
         return image, masks, self.dataset[index]

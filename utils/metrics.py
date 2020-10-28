@@ -9,8 +9,8 @@ def iou_score(output, target):
         output = torch.sigmoid(output).data.cpu().numpy()
     if torch.is_tensor(target):
         target = target.data.cpu().numpy()
-    output[:10, :, :] = output[:10, :, :] * 3.0
-    target[:10, :, :] = target[:10, :, :] * 3.0
+    #output[:10, :, :] = output[:10, :, :] * 3.0
+    #target[:10, :, :] = target[:10, :, :] * 3.0
     output_ = output > 0.5
     target_ = target > 0.5
     intersection = (output_ & target_).sum()

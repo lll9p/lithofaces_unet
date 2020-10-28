@@ -92,11 +92,11 @@ class Model():
         config = self.config
         datasets = get_datasets(path=self.root)
         train_dataset = Dataset(
-            datasets, root=self.root, mode='train')
+            datasets, root=self.root, mode='train', labels=config.labels)
         val_dataset = Dataset(
-            datasets, root=self.root, mode='val')
+            datasets, root=self.root, mode='val', labels=config.labels)
         test_dataset = Dataset(
-            datasets, root=self.root, mode='test')
+            datasets, root=self.root, mode='test', labels=config.labels)
 
         self.train_loader = torch.utils.data.DataLoader(
             train_dataset,
