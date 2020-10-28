@@ -40,7 +40,7 @@ class Model():
         cudnn.benchmark = True
 
         # Create model
-        print("=>Ccreating model {config.model}")
+        print(f"=>Ccreating model {config.model}")
         (num_classes,
          input_channels,
          deep_supervision) = (config.num_classes,
