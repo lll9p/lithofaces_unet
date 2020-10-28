@@ -116,9 +116,9 @@ class Dataset(data.Dataset):
         image, masks = get_data(path=self.root, index=self.dataset[index])
         if self.transform is not None:
             image = self.transform(image)
-        image = image.astype('float32')
+        #image = image.astype('float32')
 #         img = img.transpose(2, 0, 1)
-        masks = masks.astype('float32')
+        #masks = masks.astype('float32')
 #         mask = mask.transpose(2, 0, 1)
         return image, masks, self.dataset[index]
 
