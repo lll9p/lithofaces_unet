@@ -349,6 +349,7 @@ class Model():
 
 
 if __name__ == "__main__":
-    model = Model()
+    config = parse_args().parse_args()
+    model = Model(config=config)
     model.setup_dataset()
     model.train()
