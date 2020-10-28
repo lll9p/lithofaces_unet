@@ -347,8 +347,8 @@ class Model():
         torch.cuda.empty_cache()
 
 
-if __name__ == "__main__":
-    config = parse_args().parse_args()
-    model = Model(config=config)
-    model.setup_dataset()
-    model.train()
+# if __name__ == "__main__":
+#    config = parse_args().parse_args()
+#    model = Model(config=config)
+#    model.setup_dataset()
+#    model.train()
