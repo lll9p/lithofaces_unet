@@ -29,7 +29,7 @@ class Model():
                 ('_wDS' if config.deep_supervision else '_woDS')
         os.makedirs(f'models/{config.name}', exist_ok=True)
         print('-' * 20)
-        for key in config:
+        for key in config.__dict__:
             print(f'{key}: {config.__dict__[key]}')
         print('-' * 20)
         with open('models/%s/config.yml' % config.name, 'w') as f:
@@ -297,7 +297,7 @@ class Model():
             config = yaml.load(f, Loader=yaml.FullLoader)
 
         print('-'*20)
-        for key in config.keys():
+        for key in config.__dict__:
             print('%s: %s' % (key, str(config.__dict__[key])))
         print('-'*20)
 
