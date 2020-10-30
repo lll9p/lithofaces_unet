@@ -4,7 +4,7 @@ import os
 import pathlib
 import shutil
 import xml.etree.ElementTree as ET
-from functools import parial
+from functools import partial
 from itertools import zip_longest
 
 import cv2
