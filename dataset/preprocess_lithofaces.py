@@ -178,12 +178,14 @@ def process_original_dataset(image_node, minerals, input_path, translation, path
     inners = masks_inner[image_id]
     edges = masks_edge[image_id]
     # split to 256 blocks
-    blocks = list(split(image.shape[:2]))
-    y_ = np.random.randint(0, image.shape[0]-512)
-    x_ = np.random.randint(0, image.shape[1]-512)
+    blocks = list(split(image.shape[:2], window=256))
+    resize_index = len(blocks)
+    blocks_512 = list(split(image.shape[:2], window=512))
+    blocks = blocks+blocks_512
+    #y_ = np.random.randint(0, image.shape[0]-512)
+    #x_ = np.random.randint(0, image.shape[1]-512)
     # add random crop and resize block
-    blocks.append(([y_, y_+512], [x_, x_+512]))
-    resize_index = len(blocks)-1
+    #blocks.append(([y_, y_+512], [x_, x_+512]))
     for index, block in enumerate(blocks):
         image_name = f"{image_id}-{index}"
         y, x = block
@@ -199,15 +201,15 @@ def process_original_dataset(image_node, minerals, input_path, translation, path
         masks_ = {mineral: np.zeros((256, 256), np.uint8)
                   for mineral in minerals}
         mask_256(masks, masks_, block, minerals,
-                 is_resize=(index == resize_index))
+                 is_resize=(index >= resize_index))
         inners_ = {mineral: np.zeros((256, 256), np.uint8)
                    for mineral in minerals}
         mask_256(inners, inners_, block, minerals,
-                 is_resize=(index == resize_index))
+                 is_resize=(index >= resize_index))
         edges_ = {mineral: np.zeros((256, 256), np.uint8)
                   for mineral in minerals}
         mask_256(edges, edges_, block, minerals,
-                 is_resize=(index == resize_index))
+                 is_resize=(index >= resize_index))
         for k, v in masks_.items():
             cv2.imwrite(
                 str((path_256/image_name/"masks"/k).with_suffix(".png")), v)
