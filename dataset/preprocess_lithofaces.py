@@ -97,7 +97,11 @@ def split(shape, window=256):
     y_size, x_size = shape
     for y in range(0, y_size, window):
         for x in range(0, x_size, window):
-            yield [y, y+window], [x, x+window]
+            if y+window>y_size or x+window>x_size:
+                block = None
+            else:
+                block = [y, y+window], [x, x+window]
+            yield block
 
 
 def mask_256(masks, masks_, block, minerals, is_resize):
@@ -187,6 +191,8 @@ def process_original_dataset(image_node, minerals, input_path, translation, path
     # add random crop and resize block
     #blocks.append(([y_, y_+512], [x_, x_+512]))
     for index, block in enumerate(blocks):
+        if block is None:
+            continue
         image_name = f"{image_id}-{index}"
         y, x = block
         crop_image = image[y[0]:y[1], x[0]:x[1], :]
