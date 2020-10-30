@@ -201,7 +201,7 @@ def dataset_split_256(image_ranges):
     translation = ["A矿", "B矿", "C3A", "游离钙", "孔洞"]
     input_path = '/kaggle/input/lithofaces'
     func = partial(process_original_dataset, input=input_path, path=path, path_256=path_256,
-                   minerals=minerals, translation=translation, image_path=image_path)
+                   minerals=minerals, translation=translation)
     tree = ET.parse('data/annotations.xml')
     root = tree.getroot()
     images = []
