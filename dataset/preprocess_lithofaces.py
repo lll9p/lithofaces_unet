@@ -123,7 +123,7 @@ def mask_256(masks, masks_, block, minerals):
 #        Alite Blite C3A fCaO Pore iAlite iBlite iC3A ifCaO iPore edges
 
 
-def process_original_dataset(image_node, minerals, input_path, translation, path, path_256, image_path):
+def process_original_dataset(image_node, minerals, input_path, translation, path, path_256):
     pbar = None
     translations = {x: y for x, y in zip(translation, minerals)}
     image_id = image_node.attrib['id']
