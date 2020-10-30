@@ -152,6 +152,8 @@ def process_original_dataset(image_node, minerals, input_path, translation, path
     label_count = dict()
     for polygon in image_node:
         label = polygon.attrib['label']
+        if label not in minerals:
+            continue
         label = translations[label]
         label_count.setdefault(label, 0)
         label_count[label] += 1
@@ -222,11 +224,9 @@ def process_original_dataset(image_node, minerals, input_path, translation, path
     return None
 
 
-def dataset_split_256(image_ranges):
+def dataset_split_256(image_ranges, minerals=["Alite", "Blite", "C3A", "fCaO", "Pore"], translation=["A矿", "B矿", "C3A", "游离钙", "孔洞"]):
     path = pathlib.Path("/kaggle/working/data")
     path_256 = pathlib.Path("/kaggle/working/data_256")
-    minerals = ["Alite", "Blite", "C3A", "fCaO", "Pore"]
-    translation = ["A矿", "B矿", "C3A", "游离钙", "孔洞"]
     input_path = '/kaggle/input/lithofaces'
     func = partial(process_original_dataset, input_path=input_path, path=path, path_256=path_256,
                    minerals=minerals, translation=translation)
