@@ -97,7 +97,7 @@ def split(shape, window=256):
     y_size, x_size = shape
     for y in range(0, y_size, window):
         for x in range(0, x_size, window):
-            if y+window>y_size or x+window>x_size:
+            if y+window > y_size or x+window > x_size:
                 block = None
             else:
                 block = [y, y+window], [x, x+window]
@@ -117,16 +117,6 @@ def mask_256(masks, masks_, block, minerals, is_resize):
         for mineral in minerals:
             _mask_(label, mineral, contour_256)
 
-
-def mask_resize_256(masks, masks_, block, minerals):
-    def _mask_(label, mineral, contour):
-        if label.startswith(mineral):
-            masks_[mineral] = np.bitwise_or(masks_[mineral], contour)
-    y, x = block
-    for label, contour in masks.items():
-        contour_256 = contour[y[0]:y[1], x[0]:x[1]]
-        for mineral in minerals:
-            _mask_(label, mineral, contour_256)
 
 # images_group = list(grouper(images,CPU_NUM))
 # 256 11 classes
@@ -196,7 +186,7 @@ def process_original_dataset(image_node, minerals, input_path, translation, path
         image_name = f"{image_id}-{index}"
         y, x = block
         crop_image = image[y[0]:y[1], x[0]:x[1], :]
-        if index != resize_index:
+        if index >= resize_index:
             image_256 = crop_image
         else:
             image_256 = cv2.resize(crop_image, (256, 256))
