@@ -239,6 +239,135 @@ def dataset_split_256(image_ranges, minerals=["Alite", "Blite", "C3A", "fCaO", "
         result = list(tqdm(pool.imap(func, images),
                            desc="Images", position=0, total=len(images)))
 
+from tqdm.autonotebook import tqdm
+from itertools import zip_longest
+from sklearn.model_selection import train_test_split
+import h5py,pathlib,cv2
+import numpy as np
+from sklearn.utils import shuffle
 
-def prepare_dataset_224():
-    pass
+
+def get_datasets(path=None):
+    image_folders = sorted(
+        path.iterdir(), key=lambda path_: path_.name.split("-")[0])
+    train_folders, test_folders = train_test_split(
+        image_folders, test_size=0.1, random_state=42)
+    train_folders, val_folders = train_test_split(
+        train_folders, test_size=0.1, random_state=42)
+    # folder expand
+    return dict(train=shuffle(expand_idx(train_folders), random_state=42),
+                val=shuffle(expand_idx(val_folders), random_state=42),
+                test=shuffle(expand_idx(test_folders), random_state=42))
+
+
+def expand_idx(folders):
+    idxes = []
+    for folder in folders:
+        for crop_index in range(4):
+            idxes.append(f"{folder.name}_{crop_index}")
+    return idxes
+
+
+def crop(image, crop_index):
+    """ Method crop:0,1,2,3 expand:0-8"""
+    def crop(image, index):
+        crop_size = 224
+        if index == "0":
+            return image[0:crop_size, 0:crop_size, ...]
+        if index == "1":
+            return image[256-crop_size:, 256-crop_size:, ...]
+        if index == "2":
+            return image[256-crop_size:, 0:crop_size, ...]
+        if index == "3":
+            return image[0:crop_size, 256-crop_size:, ...]
+    """aug_funcs = {
+        "0": lambda crop_image: crop_image,  # 原图
+        "1": partial(np.rot90, k=1),  # 90°
+        "2": partial(np.rot90, k=2),  # 180°
+        "3": partial(np.rot90, k=3),  # 270°
+        "4": partial(np.flip, axis=0),  # 垂直翻转
+        "5": partial(np.flip, axis=1),  # 水平翻转
+        # 垂直翻转+90°
+        "6": lambda crop_image: np.rot90(np.flip(crop_image, 0), 3),
+        # 水平翻转+90°
+        "7": lambda crop_image: np.rot90(np.flip(crop_image, 1), 3)
+    }"""
+
+    crop_image = crop(image, crop_index)
+    return crop_image
+
+
+def get_data(path=None, index='23-44_0', labels=None):
+    image_path, crop_index = index.split("_")
+    base = str(path/f"{image_path}")
+    image = cv2.imread(f"{base}/images/{image_path}.png")
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    image = crop(image, crop_index)
+    masks = []
+    for mask_name in labels:
+        temp = cv2.imread(f"{base}/masks/{mask_name}.png",
+                          cv2.IMREAD_UNCHANGED)
+        if temp is None:
+            temp = np.zeros((256, 256))
+        masks.append(crop(temp, crop_index))
+    return image, np.stack(masks)
+
+
+
+def grouper(iterable, n, fillvalue=None):
+    "Collect data into fixed-length chunks or blocks"
+    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
+    args = [iter(iterable)] * n
+    return zip_longest(*args, fillvalue=fillvalue)
+
+
+#(len(train)*32,224,224, 3)
+
+
+def dataset_file_init(path="lithofaces.h5",
+                      datasets=None,
+                      images_shape=None,
+                      masks_shape=None,
+                      dtype=np.dtype('uint8')):
+    with h5py.File(path, "w") as file:
+        for dataset_name, dataset in datasets.items():
+            file.create_dataset(f"{dataset_name}/images", shape=tuple([len(dataset)])+images_shape,
+                                dtype=dtype, compression="gzip", compression_opts=4,chunks=True)
+            file.create_dataset(f"{dataset_name}/masks", shape=tuple([len(dataset)])+masks_shape,
+                                dtype=dtype, compression="gzip", compression_opts=4,chunks=True)
+
+
+def dataset_preprocess(datasets, dataset_path="lithofaces.h5", data_path=None, chunk_size=100,labels=None):
+    dataset_file_init(path=dataset_path,
+                  datasets=datasets,
+                  images_shape=(224, 224, 3),
+                  masks_shape=(len(labels), 224, 224),
+                  dtype=np.dtype('uint8'))
+    with h5py.File(dataset_path, "a") as file:
+        for dataset_name, dataset in datasets.items():
+            images = []
+            masks = []
+            chunks = tuple(grouper(dataset, chunk_size))
+            for chunk_num, chunk in tqdm(enumerate(chunks), desc=dataset_name, total=len(chunks)):
+                for index in chunk:
+                    if index is None:
+                        continue
+                    _image, _mask = get_data(
+                        path=data_path, index=index, labels=labels)
+                    images.append(_image)
+                    masks.append(_mask)
+                chunk_len = len(images)
+                _images = np.stack(images)
+                file[f"{dataset_name}/images"][chunk_num *
+                                               chunk_size:chunk_num*chunk_size+chunk_len, :, :, :] = _images
+                _masks = np.stack(masks)
+                file[f"{dataset_name}/masks"][chunk_num *
+                                              chunk_size:chunk_num*chunk_size+chunk_len, :, :, :] = _masks
+                images.clear()
+                masks.clear()
+def prepare_dataset_224(hdf5_file,path='/kaggle/working/data_256',labels=["Alite", "Blite", "Pore", "iAlite", "iBlite", "iPore", "edges"]):
+    path = pathlib.Path(path)
+    datasets = get_datasets(path)
+    dataset_preprocess(datasets, dataset_path=hdf5_file,
+                   data_path=pathlib.Path(path), chunk_size=500,
+                   labels=labels)

@@ -87,10 +87,11 @@ class Model():
         self.optimizer = optimizer
         self.scheduler = scheduler
 
-    def setup_dataset(self):
+    def setup_dataset(self, dataset_path):
         # Data loading code
         config = self.config
-        datasets = get_datasets(path=self.root)
+        datasets = get_datasets(file_path=dataset_path, modes=[
+                                'train', 'val', 'test'])
         train_dataset = Dataset(
             datasets, root=self.root, mode='train', labels=config.labels)
         val_dataset = Dataset(
