@@ -123,7 +123,7 @@ def mask_256(masks, masks_, block, minerals):
 #        Alite Blite C3A fCaO Pore iAlite iBlite iC3A ifCaO iPore edges
 
 
-def process_original_dataset(image_node, minerals, translation, path, path_256, image_path):
+def process_original_dataset(image_node, minerals, input_path, translation, path, path_256, image_path):
     pbar = None
     translations = {x: y for x, y in zip(translation, minerals)}
     image_id = image_node.attrib['id']
@@ -132,6 +132,7 @@ def process_original_dataset(image_node, minerals, translation, path, path_256, 
     prepare_dir(path/image_id/"masks")
     prepare_dir(path/image_id/"inners")
     prepare_dir(path/image_id/"edges")
+    image_path = os.path.join(input_path, image_name)
     image = cv2.imread(image_path)
     masks = dict()
     label_count = dict()
@@ -198,8 +199,8 @@ def dataset_split_256(image_ranges):
     path_256 = pathlib.Path("/kaggle/working/data_256")
     minerals = ["Alite", "Blite", "C3A", "fCaO", "Pore"]
     translation = ["A矿", "B矿", "C3A", "游离钙", "孔洞"]
-    image_path = os.path.join('/kaggle/input/lithofaces', image_name)
-    func = partial(process_original_dataset, path=path, path_256=path_256,
+    input_path = '/kaggle/input/lithofaces'
+    func = partial(process_original_dataset, input=input_path, path=path, path_256=path_256,
                    minerals=minerals, translation=translation, image_path=image_path)
     tree = ET.parse('data/annotations.xml')
     root = tree.getroot()
