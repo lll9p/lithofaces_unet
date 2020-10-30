@@ -152,9 +152,9 @@ def process_original_dataset(image_node, minerals, input_path, translation, path
     label_count = dict()
     for polygon in image_node:
         label = polygon.attrib['label']
+        label = translations[label]
         if label not in minerals:
             continue
-        label = translations[label]
         label_count.setdefault(label, 0)
         label_count[label] += 1
         contour_ = np.array(
@@ -195,7 +195,6 @@ def process_original_dataset(image_node, minerals, input_path, translation, path
         prepare_dir(path_256/image_name/"images")
         cv2.imwrite(str((path_256/image_name/"images" /
                          image_name).with_suffix(".png")), image_256)
-        # "minerals = ["Alite","Blite","C3A","fCaO","Pore"]"
         prepare_dir(path_256/image_name/"masks")
         masks_ = {mineral: np.zeros((256, 256), np.uint8)
                   for mineral in minerals}
