@@ -12,6 +12,7 @@ import h5py
 
 def get_datasets(file_path, modes=['train', 'val', 'test']):
     # Read datasets to memory
+    print("Reading whole dataset to memory.")
     datasets = dict()
     with h5py.File(file_path, "r") as file:
         for mode in modes:
@@ -60,4 +61,4 @@ class Dataset(data.Dataset):
         return image, masks, idx
 
     def __len__(self):
-        return len(self.dataset)
+        return len(self.dataset[0])

@@ -102,7 +102,7 @@ class Model():
         self.train_loader = torch.utils.data.DataLoader(
             train_dataset,
             batch_size=config.batch_size,
-            shuffle=True,
+            shuffle=False,
             num_workers=config.num_workers,
             drop_last=True)
         self.val_loader = torch.utils.data.DataLoader(
