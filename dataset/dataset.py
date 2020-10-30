@@ -58,7 +58,7 @@ class Dataset(data.Dataset):
         image, masks, idx = get_data(dataset=self.dataset, index=index)
         if self.transform is not None:
             image = self.transform(image)
-        return image, masks, idx
+        return image, masks, 0
 
     def __len__(self):
         return len(self.dataset[0])
