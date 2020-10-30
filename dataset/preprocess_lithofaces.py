@@ -197,7 +197,7 @@ def process_original_dataset(image_node):
     return None
 
 
-def main(image_ranges):
+def dataset_split_256(image_ranges):
     tree = ET.parse('data/annotations.xml')
     root = tree.getroot()
     images = []
