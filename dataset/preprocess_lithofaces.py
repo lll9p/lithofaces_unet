@@ -187,9 +187,9 @@ def process_original_dataset(image_node, minerals, input_path, translation, path
         y, x = block
         crop_image = image[y[0]:y[1], x[0]:x[1], :]
         if index >= resize_index:
-            image_256 = crop_image
-        else:
             image_256 = cv2.resize(crop_image, (256, 256))
+        else:
+            image_256 = crop_image
         prepare_dir(path_256/image_name/"images")
         cv2.imwrite(str((path_256/image_name/"images" /
                          image_name).with_suffix(".png")), image_256)
