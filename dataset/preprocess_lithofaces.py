@@ -202,7 +202,7 @@ def dataset_split_256(image_ranges):
     input_path = '/kaggle/input/lithofaces'
     func = partial(process_original_dataset, input=input_path, path=path, path_256=path_256,
                    minerals=minerals, translation=translation)
-    tree = ET.parse('annotations.xml')
+    tree = ET.parse("/kaggle/working/data/annotations.xml")
     root = tree.getroot()
     images = []
     for image_ in root.findall(f".//image"):
