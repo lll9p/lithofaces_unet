@@ -8,9 +8,13 @@ from functools import partial
 from itertools import zip_longest
 
 import cv2
+import h5py
 import numpy as np
 import scipy as sp
+from sklearn.model_selection import train_test_split
+from sklearn.utils import shuffle
 from tqdm.autonotebook import tqdm
+
 
 
 def fix_edges(masks, pbar=None):
@@ -239,13 +243,6 @@ def dataset_split_256(image_ranges, minerals=["Alite", "Blite", "C3A", "fCaO", "
         result = list(tqdm(pool.imap(func, images),
                            desc="Images", position=0, total=len(images)))
 
-from tqdm.autonotebook import tqdm
-from itertools import zip_longest
-from sklearn.model_selection import train_test_split
-import h5py,pathlib,cv2
-import numpy as np
-from sklearn.utils import shuffle
-
 
 def get_datasets(path=None):
     image_folders = sorted(
@@ -313,14 +310,6 @@ def get_data(path=None, index='23-44_0', labels=None):
     return image, np.stack(masks)
 
 
-
-def grouper(iterable, n, fillvalue=None):
-    "Collect data into fixed-length chunks or blocks"
-    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
-    args = [iter(iterable)] * n
-    return zip_longest(*args, fillvalue=fillvalue)
-
-
 #(len(train)*32,224,224, 3)
 
 
@@ -332,17 +321,17 @@ def dataset_file_init(path="lithofaces.h5",
     with h5py.File(path, "w") as file:
         for dataset_name, dataset in datasets.items():
             file.create_dataset(f"{dataset_name}/images", shape=tuple([len(dataset)])+images_shape,
-                                dtype=dtype, compression="gzip", compression_opts=4,chunks=True)
+                                dtype=dtype, compression="gzip", compression_opts=4, chunks=True)
             file.create_dataset(f"{dataset_name}/masks", shape=tuple([len(dataset)])+masks_shape,
-                                dtype=dtype, compression="gzip", compression_opts=4,chunks=True)
+                                dtype=dtype, compression="gzip", compression_opts=4, chunks=True)
 
 
-def dataset_preprocess(datasets, dataset_path="lithofaces.h5", data_path=None, chunk_size=100,labels=None):
+def dataset_preprocess(datasets, dataset_path="lithofaces.h5", data_path=None, chunk_size=100, labels=None):
     dataset_file_init(path=dataset_path,
-                  datasets=datasets,
-                  images_shape=(224, 224, 3),
-                  masks_shape=(len(labels), 224, 224),
-                  dtype=np.dtype('uint8'))
+                      datasets=datasets,
+                      images_shape=(224, 224, 3),
+                      masks_shape=(len(labels), 224, 224),
+                      dtype=np.dtype('uint8'))
     with h5py.File(dataset_path, "a") as file:
         for dataset_name, dataset in datasets.items():
             images = []
@@ -365,9 +354,11 @@ def dataset_preprocess(datasets, dataset_path="lithofaces.h5", data_path=None, c
                                               chunk_size:chunk_num*chunk_size+chunk_len, :, :, :] = _masks
                 images.clear()
                 masks.clear()
-def prepare_dataset_224(hdf5_file,path='/kaggle/working/data_256',labels=["Alite", "Blite", "Pore", "iAlite", "iBlite", "iPore", "edges"]):
+
+
+def prepare_dataset_224(hdf5_file, path='/kaggle/working/data_256', labels=["Alite", "Blite", "Pore", "iAlite", "iBlite", "iPore", "edges"]):
     path = pathlib.Path(path)
     datasets = get_datasets(path)
     dataset_preprocess(datasets, dataset_path=hdf5_file,
-                   data_path=pathlib.Path(path), chunk_size=500,
-                   labels=labels)
+                       data_path=pathlib.Path(path), chunk_size=500,
+                       labels=labels)
