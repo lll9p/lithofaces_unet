@@ -202,7 +202,7 @@ def dataset_split_256(image_ranges):
     input_path = '/kaggle/input/lithofaces'
     func = partial(process_original_dataset, input=input_path, path=path, path_256=path_256,
                    minerals=minerals, translation=translation)
-    tree = ET.parse('data/annotations.xml')
+    tree = ET.parse('annotations.xml')
     root = tree.getroot()
     images = []
     for image_ in root.findall(f".//image"):
@@ -211,5 +211,5 @@ def dataset_split_256(image_ranges):
     # Reduce from 27s/image to 14s/image
     CPU_NUM = multiprocessing.cpu_count()
     with multiprocessing.Pool(CPU_NUM) as pool:
-        result = list(tqdm(pool.imap(process_original_dataset, images),
+        result = list(tqdm(pool.imap(func, images),
                            desc="Images", position=0, total=len(images)))
