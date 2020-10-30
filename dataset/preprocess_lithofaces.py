@@ -324,6 +324,9 @@ def dataset_file_init(path="lithofaces.h5",
                                 dtype=dtype, compression="gzip", compression_opts=4, chunks=True)
             file.create_dataset(f"{dataset_name}/masks", shape=tuple([len(dataset)])+masks_shape,
                                 dtype=dtype, compression="gzip", compression_opts=4, chunks=True)
+            idxes = [s.encode('ascii') for s in dataset]
+            file.create_dataset(f"{dataset_name}/idx", shape=(len(idxes),),data=idxes,
+                                dtype='S10', compression="gzip", compression_opts=4, chunks=True)
 
 
 def dataset_preprocess(datasets, dataset_path="lithofaces.h5", data_path=None, chunk_size=100, labels=None):
