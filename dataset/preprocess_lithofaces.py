@@ -100,7 +100,21 @@ def split(shape, window=256):
             yield [y, y+window], [x, x+window]
 
 
-def mask_256(masks, masks_, block, minerals):
+def mask_256(masks, masks_, block, minerals, is_resize):
+    def _mask_(label, mineral, contour):
+        if label.startswith(mineral):
+            masks_[mineral] = np.bitwise_or(masks_[mineral], contour)
+    y, x = block
+    for label, contour in masks.items():
+        if is_resize:
+            contour_256 = cv2.resize(contour[y[0]:y[1], x[0]:x[1]], (256, 256))
+        else:
+            contour_256 = contour[y[0]:y[1], x[0]:x[1]]
+        for mineral in minerals:
+            _mask_(label, mineral, contour_256)
+
+
+def mask_resize_256(masks, masks_, block, minerals):
     def _mask_(label, mineral, contour):
         if label.startswith(mineral):
             masks_[mineral] = np.bitwise_or(masks_[mineral], contour)
@@ -158,14 +172,24 @@ def process_original_dataset(image_node, minerals, input_path, translation, path
     save_shape(masks[image_id], path/image_id/"masks")
     save_shape(masks_inner[image_id], path/image_id/"inners")
     save_shape(masks_edge[image_id], path/image_id/"edges")
-    blocks = list(split(image.shape[:2]))
     masks = masks[image_id]
     inners = masks_inner[image_id]
     edges = masks_edge[image_id]
+    # split to 256 blocks
+    blocks = list(split(image.shape[:2]))
+    y_ = np.random.randint(0, image.shape[0]-512)
+    x_ = np.random.randint(0, image.shape[1]-512)
+    # add random crop and resize block
+    blocks.append(([y_, y_+512], [x_, x_+512]))
+    resize_index = len(blocks)-1
     for index, block in enumerate(blocks):
         image_name = f"{image_id}-{index}"
         y, x = block
-        image_256 = image[y[0]:y[1], x[0]:x[1], :]
+        crop_image = image[y[0]:y[1], x[0]:x[1], :]
+        if index != resize_index:
+            image_256 = crop_image
+        else:
+            image_256 = cv2.resize(crop_image, (256, 256))
         prepare_dir(path_256/image_name/"images")
         cv2.imwrite(str((path_256/image_name/"images" /
                          image_name).with_suffix(".png")), image_256)
@@ -173,13 +197,16 @@ def process_original_dataset(image_node, minerals, input_path, translation, path
         prepare_dir(path_256/image_name/"masks")
         masks_ = {mineral: np.zeros((256, 256), np.uint8)
                   for mineral in minerals}
-        mask_256(masks, masks_, block, minerals)
+        mask_256(masks, masks_, block, minerals,
+                 is_resize=(index == resize_index))
         inners_ = {mineral: np.zeros((256, 256), np.uint8)
                    for mineral in minerals}
-        mask_256(inners, inners_, block, minerals)
+        mask_256(inners, inners_, block, minerals,
+                 is_resize=(index == resize_index))
         edges_ = {mineral: np.zeros((256, 256), np.uint8)
                   for mineral in minerals}
-        mask_256(edges, edges_, block, minerals)
+        mask_256(edges, edges_, block, minerals,
+                 is_resize=(index == resize_index))
         for k, v in masks_.items():
             cv2.imwrite(
                 str((path_256/image_name/"masks"/k).with_suffix(".png")), v)
@@ -191,6 +218,7 @@ def process_original_dataset(image_node, minerals, input_path, translation, path
             edges_addup = np.bitwise_or(v, edges_addup)
         cv2.imwrite(
             str((path_256/image_name/"masks"/"edges").with_suffix(".png")), edges_addup)
+
     return None
 
 
@@ -213,3 +241,7 @@ def dataset_split_256(image_ranges):
     with multiprocessing.Pool(CPU_NUM) as pool:
         result = list(tqdm(pool.imap(func, images),
                            desc="Images", position=0, total=len(images)))
+
+
+def prepare_dataset_224():
+    pass
