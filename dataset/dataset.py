@@ -56,13 +56,13 @@ class Dataset(data.Dataset):
                 transforms.ToPILImage(),
             ])
         image = composed(image)
-        masks = transforms.functional.to_tensor(masks)
+        masks = [transforms.functional.to_tensor(mask) for mask in masks]
         if random.random() > 0.5:
             image = transforms.functional.hflip(image)
-            masks = transforms.functional.hflip(masks)
+            masks = torch.cat((transforms.functional.hflip(mask) for mask in masks),0)
         if random.random() > 0.5:
             image = transforms.functional.vflip(image)
-            masks = transforms.functional.hflip(masks)
+            masks = torch.cat((transforms.functional.hflip(mask) for mask in masks),0)
         return normalize(image), masks
 
     def __getitem__(self, index):
