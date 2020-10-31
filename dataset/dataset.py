@@ -68,7 +68,7 @@ class Dataset(data.Dataset):
         image, masks, idx = get_data(dataset=self.dataset, index=index)
         masks = masks.astype(np.float32)
         if self.transforms is not None:
-            image, masks = self.transform(image, masks)
+            image, masks = self.transforms(image, masks)
         return image, masks, idx.decode()
 
     def __len__(self):
