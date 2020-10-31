@@ -56,7 +56,7 @@ class Dataset(data.Dataset):
                 transforms.ToPILImage(),
             ])
         image = composed(image)
-        #masks = [transforms.functional.to_tensor(mask) for mask in masks]
+        masks = [transforms.functional.to_tensor(mask) for mask in masks]
         if random.random() > 0.5:
             image = transforms.functional.hflip(image)
             masks = np.stack([transforms.functional.hflip(mask)
