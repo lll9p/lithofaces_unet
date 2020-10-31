@@ -57,15 +57,16 @@ class Dataset(data.Dataset):
             ])
         image = composed(image)
         masks = [transforms.functional.to_tensor(mask) for mask in masks]
-        if random.random() > 0.5:
+        if random.random() > .0:
             image = transforms.functional.hflip(image)
-            masks = np.stack([transforms.functional.hflip(mask)
-                              for mask in masks], 0)
-        if random.random() > 0.5:
+            masks = tuple((transforms.functional.hflip(mask)
+                           for mask in masks))
+        if random.random() > .0:
             image = transforms.functional.vflip(image)
-            masks = np.stack([transforms.functional.hflip(mask)
-                              for mask in masks], 0)
-        return normalize(image), transforms.functional.to_tensor(masks)
+            masks = tuple((transforms.functional.vflip(mask)
+                           for mask in masks))
+        masks = torch.cat(masks)
+        return normalize(image), masks
 
     def __getitem__(self, index):
         image, masks, idx = get_data(dataset=self.dataset, index=index)
