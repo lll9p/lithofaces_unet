@@ -1,4 +1,5 @@
 import os
+import random
 import pathlib
 from functools import partial
 
@@ -31,8 +32,17 @@ class Dataset(data.Dataset):
         self.root = root
         self.labels = labels
         self.dataset = dataset[mode]
-        if mode == 'train':
-            self.transform = transforms.Compose([
+        self.mode = mode
+
+    def transforms(self, image, masks):
+        def normalize():
+            return transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225]),
+            ])
+        if self.mode == 'train':
+            composed = transforms.Compose([
                 transforms.ToPILImage(),
                 transforms.RandomApply([
                     transforms.ColorJitter(brightness=0.1),
@@ -40,25 +50,26 @@ class Dataset(data.Dataset):
                     transforms.ColorJitter(saturation=0.15),
                     transforms.ColorJitter(hue=0.1)
                 ], p=0.1),
-                transforms.RandomHorizontalFlip(p=0.5),
-                transforms.RandomVerticalFlip(p=0.5),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225]),
             ])
         else:
-            self.transform = transforms.Compose([
+            composed = transforms.Compose([
                 transforms.ToPILImage(),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225]),
             ])
+        image = composed(image)
+        if random.random() > 0.5:
+            image = transforms.functional.hflip(image)
+            masks = transforms.functional.hflip(masks)
+        if random.random() > 0.5:
+            image = transforms.functional.vflip(image)
+            masks = transforms.functional.hflip(masks)
+        return normalize(image), masks
 
     def __getitem__(self, index):
         image, masks, idx = get_data(dataset=self.dataset, index=index)
+        masks = masks.astype(np.float32)
         if self.transform is not None:
-            image = self.transform(image)
-        return image, masks.float(), idx.decode()
+            image, masks = self.transform(image, masks)
+        return image, masks, idx.decode()
 
     def __len__(self):
         return len(self.dataset[0])
