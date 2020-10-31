@@ -57,11 +57,11 @@ class Dataset(data.Dataset):
             ])
         image = composed(image)
         masks = [transforms.functional.to_tensor(mask) for mask in masks]
-        if random.random() > .0:
+        if random.random() > .5:
             image = transforms.functional.hflip(image)
             masks = tuple((transforms.functional.hflip(mask)
                            for mask in masks))
-        if random.random() > .0:
+        if random.random() > .5:
             image = transforms.functional.vflip(image)
             masks = tuple((transforms.functional.vflip(mask)
                            for mask in masks))
