@@ -35,11 +35,11 @@ class Dataset(data.Dataset):
         self.mode = mode
 
     def transforms(self, image, masks):
-        def normalize():
+        def normalize(image):
             return transforms.Compose([
                 transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225]),
-            ])
+            ])(image)
         if self.mode == 'train':
             composed = transforms.Compose([
                 transforms.ToPILImage(),
