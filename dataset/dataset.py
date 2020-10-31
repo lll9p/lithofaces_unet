@@ -37,7 +37,6 @@ class Dataset(data.Dataset):
     def transforms(self, image, masks):
         def normalize():
             return transforms.Compose([
-                transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225]),
             ])
@@ -56,6 +55,7 @@ class Dataset(data.Dataset):
                 transforms.ToPILImage(),
             ])
         image = composed(image)
+        masks = transforms.functional.to_tensor(masks)
         if random.random() > 0.5:
             image = transforms.functional.hflip(image)
             masks = transforms.functional.hflip(masks)
