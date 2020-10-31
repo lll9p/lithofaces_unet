@@ -59,10 +59,12 @@ class Dataset(data.Dataset):
         masks = [transforms.functional.to_tensor(mask) for mask in masks]
         if random.random() > 0.5:
             image = transforms.functional.hflip(image)
-            masks = torch.cat((transforms.functional.hflip(mask) for mask in masks),0)
+            masks = torch.cat([transforms.functional.hflip(mask)
+                               for mask in masks], 0)
         if random.random() > 0.5:
             image = transforms.functional.vflip(image)
-            masks = torch.cat((transforms.functional.hflip(mask) for mask in masks),0)
+            masks = torch.cat([transforms.functional.hflip(mask)
+                               for mask in masks], 0)
         return normalize(image), masks
 
     def __getitem__(self, index):
