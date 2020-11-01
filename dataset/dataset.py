@@ -28,9 +28,7 @@ def get_data(dataset, index, labels=None):
                    "mPore", "iAlite", "iBlite", "iC3A", "ifCaO", "iPore", "edges"]
     label_index = [full_labels.index(label) for label in labels]
     # masks selector
-    return dataset[0][index],
-    dataset[1][index][label_index],
-    dataset[2][index]
+    return dataset[0][index], dataset[1][index][label_index], dataset[2][index]
 
 
 class Dataset(data.Dataset):
