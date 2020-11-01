@@ -348,7 +348,8 @@ def dataset_preprocess(datasets, dataset_path="lithofaces.h5", data_path=None, c
                 masks.clear()
 
 
-def prepare_dataset_224(hdf5_file, path='/kaggle/working/data_256', labels=["Alite", "Blite", "Pore", "iAlite", "iBlite", "iPore", "edges"]):
+def prepare_dataset_224(hdf5_file, path='/kaggle/working/data_256', labels=["mAlite", "mBlite", "mPore", "iAlite", "iBlite", "iPore", "edges"]):
+    # labels就是读取masks的文件名
     path = pathlib.Path(path)
     datasets = get_datasets(path)
     dataset_preprocess(datasets, dataset_path=hdf5_file,
