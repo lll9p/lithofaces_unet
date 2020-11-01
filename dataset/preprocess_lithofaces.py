@@ -113,16 +113,21 @@ def save(path, image_id, contents, labels, stack_mask=False):
             for id_, mask in masks.items():
                 cv2.imwrite(f"{image_path}/masks/{flag}{id_}.png", mask)
     if stack_mask is True:
+        edges = np.zeros((256, 256), dtype=np.uint8)
         for masks_name, masks in masks_.items():
+            flag = masks_name[0]
             for label in labels:
                 masks_temp = np.zeros((256, 256), dtype=np.uint8)
-                flag = masks_name[0]
                 for id_, mask in masks.items():
                     if not id_.startswith(label):
                         continue
+                    if masks_name == 'edges':
+                        edges = np.bitwise_or(edges, mask)
                     masks_temp = np.bitwise_or(masks_temp, mask)
                 cv2.imwrite(
                     f"{image_path}/masks/{flag}{label}.png", masks_temp)
+        cv2.imwrite(
+            f"{image_path}/masks/edges.png", edges)
 
 
 def process_original_dataset(image_node,
