@@ -134,7 +134,7 @@ def process_original_dataset(image_node,
                              path=None,
                              path_256=None,
                              input_path="/kaggle/input/lithofaces",
-                             translations=translations):
+                             translations=None):
     """
     处理一张图片节点，生成contour,并把图片及countor分割为256x256->256x256,512x512->256x256
     """
