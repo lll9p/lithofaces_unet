@@ -75,7 +75,8 @@ class Dataset(data.Dataset):
         return normalize(image), masks
 
     def __getitem__(self, index):
-        image, masks, idx = get_data(dataset=self.dataset, index=index)
+        image, masks, idx = get_data(
+            dataset=self.dataset, index=index, labels=self.labels)
         masks = masks.astype(np.float32)
         if self.transforms is not None:
             image, masks = self.transforms(image, masks)
