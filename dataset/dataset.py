@@ -23,7 +23,8 @@ def get_datasets(file_path, modes=['train', 'val', 'test']):
     return datasets
 
 
-def get_data(dataset, index):
+def get_data(dataset, index, labels=None):
+    # masks selector
     return dataset[0][index], dataset[1][index], dataset[2][index]
 
 

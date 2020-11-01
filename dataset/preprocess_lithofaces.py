@@ -1,4 +1,5 @@
 import copy
+import gc
 import multiprocessing
 import os
 import pathlib
@@ -14,7 +15,6 @@ import scipy as sp
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
 from tqdm.autonotebook import tqdm
-
 
 
 def fix_edges(masks, pbar=None):
@@ -83,17 +83,6 @@ def grouper(iterable, n, fillvalue=None):
     return zip_longest(*args, fillvalue=fillvalue)
 
 
-def prepare_dir(path):
-    if path.exists():
-        shutil.rmtree(path)
-    os.makedirs(path)
-
-
-def save_shape(masks, path):
-    for index, contour in masks.items():
-        cv2.imwrite(str((path/index).with_suffix(".png")), contour)
-
-
 def split(shape, window=256):
     """
     split shape(y,x) to list of blocks
@@ -108,129 +97,124 @@ def split(shape, window=256):
             yield block
 
 
-def mask_256(masks, masks_, block, minerals, is_resize):
-    def _mask_(label, mineral, contour):
-        if label.startswith(mineral):
-            masks_[mineral] = np.bitwise_or(masks_[mineral], contour)
-    y, x = block
-    for label, contour in masks.items():
-        if is_resize:
-            contour_256 = cv2.resize(contour[y[0]:y[1], x[0]:x[1]], (256, 256))
-        else:
-            contour_256 = contour[y[0]:y[1], x[0]:x[1]]
-        for mineral in minerals:
-            _mask_(label, mineral, contour_256)
+def save(path, image_id, contents, labels, stack_mask=False):
+    """
+    contents : [image,{'masks':{id:mask,...}, 'inners':inner, 'edges':edges}]
+    """
+    image = contents.pop(0)
+    masks_ = contents[0]
+    image_path = path/image_id
+    os.makedirs(image_path/"images", exist_ok=True)
+    os.makedirs(image_path/"masks", exist_ok=True)
+    cv2.imwrite(f"{image_path}/images/{image_id}.png", image)
+    if stack_mask is False:
+        for masks_name, masks in masks_.items():
+            flag = masks_name[0]  # m,i,e
+            for id_, mask in masks.items():
+                cv2.imwrite(f"{image_path}/masks/{flag}{id_}.png", mask)
+    if stack_mask is True:
+        for masks_name, masks in masks_.items():
+            for label in labels:
+                masks_temp = np.zeros((256, 256), dtype=np.uint8)
+                flag = masks_name[0]
+                for id_, mask in masks.items():
+                    if not id_.startswith(label):
+                        continue
+                    masks_temp = np.bitwise_or(masks_temp, mask)
+                cv2.imwrite(
+                    f"{image_path}/masks/{flag}{label}.png", masks_temp)
 
 
-# images_group = list(grouper(images,CPU_NUM))
-# 256 11 classes
-# Contours:Alite Blite C3A fCaO Pore
-# Inners: Alite Blite C3A fCaO Pore
-# Edges
-# data
-#    |
-#    images
-#    masks
-#        |
-#        Alite Blite C3A fCaO Pore iAlite iBlite iC3A ifCaO iPore edges
-
-
-def process_original_dataset(image_node, minerals, input_path, translation, path, path_256):
+def process_original_dataset(image_node,
+                             path=None,
+                             path_256=None,
+                             input_path="/kaggle/input/lithofaces",
+                             translations=translations):
+    """
+    处理一张图片节点，生成contour,并把图片及countor分割为256x256->256x256,512x512->256x256
+    """
     pbar = None
-    translations = {x: y for x, y in zip(translation, minerals)}
+    path = pathlib.Path(path)
+    path_256 = pathlib.Path(path_256)
+    labels = tuple(translations.values())
+    # get image id
     image_id = image_node.attrib['id']
+    # get image name
     image_name = image_node.attrib['name'].split("/")[1]
-    prepare_dir(path/image_id/"images")
-    prepare_dir(path/image_id/"masks")
-    prepare_dir(path/image_id/"inners")
-    prepare_dir(path/image_id/"edges")
     image_path = os.path.join(input_path, image_name)
     image = cv2.imread(image_path)
-    masks = dict()
+    masks_ = dict()
     label_count = dict()
     for polygon in image_node:
         label = polygon.attrib['label']
         label = translations[label]
-        if label not in minerals:
+        if label not in labels:
             continue
         label_count.setdefault(label, 0)
         label_count[label] += 1
-        contour_ = np.array(
+        shape_points = np.array(
             [eval(_) for _ in polygon.attrib['points'].split(";")]).astype(np.int)
-        contour = cv2.drawContours(np.zeros(image.shape[:2]),  # blank image
-                                   [contour_],  # contours
-                                   -1,  # contour id
-                                   True,  # contour color [255,255,255]
-                                   -1  # contour thickness -1 means fill
-                                   )
-        masks[f"{label}{label_count[label]}"] = contour.astype(np.uint8)
-
-    masks, masks_inner, masks_edge = fix_edges({image_id: masks}, pbar=pbar)
-
-    cv2.imwrite(
-        str((path/image_id/"images"/image_id).with_suffix(".png")), image)
-    save_shape(masks[image_id], path/image_id/"masks")
-    save_shape(masks_inner[image_id], path/image_id/"inners")
-    save_shape(masks_edge[image_id], path/image_id/"edges")
-    masks = masks[image_id]
-    inners = masks_inner[image_id]
-    edges = masks_edge[image_id]
-    # split to 256 blocks
-    blocks = list(split(image.shape[:2], window=256))
-    resize_index = len(blocks)
+        shape = cv2.drawContours(np.zeros(image.shape[:2]),  # blank image
+                                 [shape_points],  # contours
+                                 -1,  # contour id
+                                 True,  # contour color [255,255,255]
+                                 -1  # contour thickness -1 means fill
+                                 )
+        masks_[f"{label}{label_count[label]}"] = shape.astype(np.uint8)
+    # process masks touched
+    masks, masks_inner, masks_edge = fix_edges({image_id: masks_}, pbar=pbar)
+    contents = [image, dict(masks=masks[image_id], inners=masks_inner[image_id],
+                            edges=masks_edge[image_id])]
+    save(path=path, image_id=image_id, contents=contents,
+         labels=labels, stack_mask=False)
+    del contents
+    blocks_256 = list(split(image.shape[:2], window=256))
+    resize_index = len(blocks_256)
     blocks_512 = list(split(image.shape[:2], window=512))
-    blocks = blocks+blocks_512
-    #y_ = np.random.randint(0, image.shape[0]-512)
-    #x_ = np.random.randint(0, image.shape[1]-512)
-    # add random crop and resize block
-    #blocks.append(([y_, y_+512], [x_, x_+512]))
+    blocks = blocks_256+blocks_512
+    for i in range(2):
+        # add 2 random 384x384 crop
+        y_ = np.random.randint(0, image.shape[0]-384)
+        x_ = np.random.randint(0, image.shape[1]-384)
+        blocks.append(([y_, y_+384], [x_, x_+384]))
+    is_resize = False
     for index, block in enumerate(blocks):
         if block is None:
             continue
-        image_name = f"{image_id}-{index}"
-        y, x = block
-        crop_image = image[y[0]:y[1], x[0]:x[1], :]
         if index >= resize_index:
-            image_256 = cv2.resize(crop_image, (256, 256))
+            is_resize = True
         else:
-            image_256 = crop_image
-        prepare_dir(path_256/image_name/"images")
-        cv2.imwrite(str((path_256/image_name/"images" /
-                         image_name).with_suffix(".png")), image_256)
-        prepare_dir(path_256/image_name/"masks")
-        masks_ = {mineral: np.zeros((256, 256), np.uint8)
-                  for mineral in minerals}
-        mask_256(masks, masks_, block, minerals,
-                 is_resize=(index >= resize_index))
-        inners_ = {mineral: np.zeros((256, 256), np.uint8)
-                   for mineral in minerals}
-        mask_256(inners, inners_, block, minerals,
-                 is_resize=(index >= resize_index))
-        edges_ = {mineral: np.zeros((256, 256), np.uint8)
-                  for mineral in minerals}
-        mask_256(edges, edges_, block, minerals,
-                 is_resize=(index >= resize_index))
-        for k, v in masks_.items():
-            cv2.imwrite(
-                str((path_256/image_name/"masks"/k).with_suffix(".png")), v)
-        for k, v in inners_.items():
-            cv2.imwrite(
-                str((path_256/image_name/"masks"/("i"+k)).with_suffix(".png")), v)
-        edges_addup = np.zeros((256, 256), np.uint8)
-        for k, v in edges_.items():
-            edges_addup = np.bitwise_or(v, edges_addup)
-        cv2.imwrite(
-            str((path_256/image_name/"masks"/"edges").with_suffix(".png")), edges_addup)
-
-    return None
+            is_resize = False
+        image_256_id = f"{image_id}-{index}"
+        y, x = block
+        image_256 = image[y[0]:y[1], x[0]:x[1], ...]
+        masks_256_ = dict()
+        if is_resize:
+            image_256 = cv2.resize(image_256, (256, 256))
+        for shape_id, shape in masks_.items():
+            shape_256 = shape[y[0]:y[1], x[0]:x[1], ...]
+            if is_resize:
+                shape_256 = cv2.resize(shape_256, (256, 256))
+            masks_256_[f"{shape_id}"] = shape_256
+        masks_256, masks_inner_256, masks_edge_256 = fix_edges(
+            {image_256_id: masks_256_}, pbar=pbar)
+        contents = [image_256, dict(masks=masks_256[image_256_id],
+                                    inners=masks_inner_256[image_256_id],
+                                    edges=masks_edge_256[image_256_id])]
+        save(path=path_256, image_id=image_256_id,
+             contents=contents, labels=labels, stack_mask=True)
+        del contents
+        gc.collect()
+    return True
 
 
-def dataset_split_256(image_ranges, minerals=["Alite", "Blite", "C3A", "fCaO", "Pore"], translation=["A矿", "B矿", "C3A", "游离钙", "孔洞"]):
+def dataset_perform(image_ranges, translations={'A矿': 'Alite', 'B矿': 'Blite', 'C3A': 'C3A', '游离钙': 'fCaO', '孔洞': 'Pore'}):
     path = pathlib.Path("/kaggle/working/data")
     path_256 = pathlib.Path("/kaggle/working/data_256")
     input_path = '/kaggle/input/lithofaces'
-    func = partial(process_original_dataset, input_path=input_path, path=path, path_256=path_256,
-                   minerals=minerals, translation=translation)
+    func = partial(process_original_dataset,
+                   input_path=input_path, path=path, path_256=path_256,
+                   translations=translations)
     tree = ET.parse("/kaggle/working/data/annotations.xml")
     root = tree.getroot()
     images = []
@@ -325,7 +309,7 @@ def dataset_file_init(path="lithofaces.h5",
             file.create_dataset(f"{dataset_name}/masks", shape=tuple([len(dataset)])+masks_shape,
                                 dtype=dtype, compression="gzip", compression_opts=4, chunks=True)
             idxes = [s.encode('ascii') for s in dataset]
-            file.create_dataset(f"{dataset_name}/idx", shape=(len(idxes),),data=idxes,
+            file.create_dataset(f"{dataset_name}/idx", shape=(len(idxes),), data=idxes,
                                 dtype='S10', compression="gzip", compression_opts=4, chunks=True)
 
 
