@@ -24,8 +24,8 @@ def get_datasets(file_path, modes=['train', 'val', 'test']):
 
 
 def get_data(dataset, index, labels=None):
-    full_labels = ["mAlite", "mBlite", "mC3A", "mfCaO",
-                   "mPore", "iAlite", "iBlite", "iC3A", "ifCaO", "iPore", "edges"]
+    full_labels = ["mAlite", "mBlite",
+                   "mPore", "iAlite", "iBlite", "iPore", "edges"]
     label_index = [full_labels.index(label) for label in labels]
     # masks selector
     return dataset[0][index], dataset[1][index][label_index], dataset[2][index]
