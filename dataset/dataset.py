@@ -28,7 +28,7 @@ def get_data(dataset, index, labels):
     # masks selector
     (image, mask, weight_map, idx) = (
         dataset[0][index], dataset[1][index], dataset[2][index], dataset[3][index])
-    mask = semantic2onehot(mask)
+    mask = semantic2onehot(mask, labels)
     return image, mask, weight_map, idx
 
 
