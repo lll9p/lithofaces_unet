@@ -321,7 +321,7 @@ def dataset_file_init(path="lithofaces.h5",
             #idxes = [s.encode('ascii') for s in dataset['idx']]
             file.create_dataset(f"{dataset_name}/idx", shape=(len(dataset['idx']),),
                                 dtype='S10', compression="gzip", compression_opts=4, chunks=True)
-def dataset_preprocess(datasets, dataset_path="lithofaces.h5"):
+def dataset_to_h5(datasets, dataset_path="lithofaces.h5"):
     dataset_file_init(path=dataset_path,
                       datasets=datasets,
                       images_shape=(256, 256, 3),
