@@ -28,18 +28,16 @@ def get_data(dataset, index, labels):
     # masks selector
     (image, mask, weight_map, idx) = (
         dataset[0][index], dataset[1][index], dataset[2][index], dataset[3][index])
-    mask = semantic2onehot(mask, labels)
+    #mask = semantic2onehot(mask, labels)
     return image, mask, weight_map, idx
 
 
 def semantic2onehot(mask, labels):
-    print(mask.shape)
-    mask_ = []
+    mask_ = np.zeros((len(labels),)+mask.shape, dtype=np.uint8)
+    print("xx", mask_.shape)
     for index, label in enumerate(labels):
-        mask_temp = np.zeros_like(mask)
-        mask_temp[mask == label] = 1
-        mask_.append(mask_temp)
-    return np.stack(mask_)
+        mask_[index][mask == label] = 1
+    return mask_
 
 
 class Dataset(data.Dataset):
