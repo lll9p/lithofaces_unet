@@ -37,8 +37,6 @@ class Model():
         # Defile loss function(criterion)
         self.criterion = losses.__dict__[config.loss]().cuda()
 
-        #cudnn.benchmark = True
-
         # Create model
         print(f"=>Ccreating model {config.model}")
         (num_classes,
@@ -49,6 +47,7 @@ class Model():
         model = models.__dict__[config.model](num_classes,
                                               input_channels,
                                               deep_supervision)
+        #cudnn.benchmark = True
         self.model = model.to(torch.device('cpu'))
         params = filter(lambda p: p.requires_grad,
                         self.model.parameters())

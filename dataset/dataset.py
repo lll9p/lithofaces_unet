@@ -83,9 +83,9 @@ class Dataset(data.Dataset):
         mask = semantic2onehot(np.array(mask), self.labels)
         # print(mask.shape)
         image = normalize(image)
-        #mask = torch.from_numpy(mask.copy()).float()
+        mask = torch.cat(mask.astype(np.float32))
         #weight_map = torch.from_numpy(weight_map.copy()).float()
-        return image, mask.astype(np.float32).copy(), weight_map.copy()
+        return image, mask, weight_map.copy()
 
     def __getitem__(self, index):
         image, mask, weight_map, idx = get_data(
