@@ -34,8 +34,10 @@ def get_data(dataset, index, labels):
 
 def semantic2onehot(mask, labels):
     mask_ = np.zeros((len(labels),)+mask.shape, dtype=np.uint8)
+    print("xx", mask_.shape)
     for index, label in enumerate(labels):
         mask_[index][mask == label] = 1
+    print("xx", mask_.shape)
     return mask_
 
 
