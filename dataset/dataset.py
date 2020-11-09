@@ -80,7 +80,7 @@ class Dataset(data.Dataset):
             mask = transforms.functional.vflip(mask)
             weight_map = np.flipud(weight_map)
         image = self.composed(image)
-        mask = np.array(mask)
+        mask = np.array(mask)[0]
         print(mask.shape)
         mask = semantic2onehot(mask, self.labels)
         # print(mask.shape)
