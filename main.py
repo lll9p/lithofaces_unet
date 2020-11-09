@@ -49,7 +49,7 @@ class Model():
         model = models.__dict__[config.model](num_classes,
                                               input_channels,
                                               deep_supervision)
-        self.model = model.cuda()
+        #self.model = model.cuda()
         params = filter(lambda p: p.requires_grad,
                         self.model.parameters())
         if config.optimizer == 'Adam':
