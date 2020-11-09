@@ -85,6 +85,7 @@ class Dataset(data.Dataset):
         image = normalize(image)
         mask = mask.astype(np.float32)
         #weight_map = torch.from_numpy(weight_map.copy()).float()
+        print(mask.shape)
         return image, mask, weight_map.copy()
 
     def __getitem__(self, index):
@@ -92,7 +93,6 @@ class Dataset(data.Dataset):
             dataset=self.dataset, index=index, labels=self.labels)
         if self.transforms is not None:
             image, mask, weight_map = self.transforms(image, mask, weight_map)
-        print(mask.shape)
         return image, mask, weight_map, idx.decode()
 
     def __len__(self):
