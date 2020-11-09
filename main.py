@@ -96,23 +96,15 @@ class Model():
             datasets, root=self.root, mode='train', labels=config.labels)
         val_dataset = Dataset(
             datasets, root=self.root, mode='val', labels=config.labels)
-        test_dataset = Dataset(
-            datasets, root=self.root, mode='test', labels=config.labels)
 
         self.train_loader = torch.utils.data.DataLoader(
             train_dataset,
             batch_size=config.batch_size,
-            shuffle=False,
+            shuffle=True,
             num_workers=config.num_workers,
             drop_last=True)
         self.val_loader = torch.utils.data.DataLoader(
             val_dataset,
-            batch_size=config.batch_size,
-            shuffle=False,
-            num_workers=config.num_workers,
-            drop_last=False)
-        self.test_loader = torch.utils.data.DataLoader(
-            test_dataset,
             batch_size=config.batch_size,
             shuffle=False,
             num_workers=config.num_workers,
@@ -127,7 +119,7 @@ class Model():
 
         #pbar = tqdm(total=len(train_loader), position=1, leave=True)
         pbar.total = len(train_loader)
-        for input, target, _ in train_loader:
+        for input, target,weight_map, _ in train_loader:
             input = input.cuda()
             target = target.cuda()
 
@@ -186,7 +178,7 @@ class Model():
         with torch.no_grad():
             #pbar = tqdm(total=len(val_loader), position=2, leave=True)
             pbar.total = len(val_loader)
-            for input, target, _ in val_loader:
+            for input, target, weight_map,_ in val_loader:
                 input = input.cuda()
                 target = target.cuda()
 
@@ -322,7 +314,7 @@ class Model():
             os.makedirs(os.path.join(
                 'outputs', config.name, str(c)), exist_ok=True)
         with torch.no_grad():
-            for input, target, meta in tqdm(self.test_loader, total=len(self.test_loader)):
+            for input, target, weight_map,meta in tqdm(self.val_loader, total=len(self.val_loader)):
                 input = input.cuda()
                 target = target.cuda()
 

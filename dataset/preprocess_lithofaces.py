@@ -397,3 +397,34 @@ def class_weight(select_classes, results, label_map):
     for label, value in class_weight.items():
         class_weight[label] = value/max_weight
     print(class_weight)
+
+
+if __name__ == "__main__":
+    translations = {'A矿': 'Alite', 'B矿': 'Blite',
+                    'C3A': 'C3A', '游离钙': 'fCaO', '孔洞': 'Pore'}
+    select_classes = ['Alite', 'Blite', 'C3A', 'Pore']
+    image_ranges = list(range(31))+[38, 39]
+    image_ranges = [0, 3, 26, 39]
+
+    input_path = '/kaggle/input/lithofaces'
+    annotations = "/kaggle/working/data/annotations.xml"
+    label_map = {label: i for i, label in enumerate(select_classes, start=1)}
+
+    print("Original dataset generating from annotations.xml.")
+    results = process_original(
+        annotations, translations, select_classes, image_ranges, input_path)
+
+    print("Caculating class_weight.")
+    class_weight(select_classes, results, label_map)
+
+    val_images = {"3": [0],
+                  "5": [0, 2],
+                  "9": [1],
+                  "20": [3],
+                  "22": [3],
+                  "26": [0, 3],
+                  }
+    print("Generating Datasets.")
+    datasets = form_datasets(results, val_images, label_map)
+    print("Generating hdf5 file from Datasets.")
+    dataset_to_h5(datasets, dataset_path="/kaggle/working/lithofaces.h5")
