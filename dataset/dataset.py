@@ -33,6 +33,7 @@ def get_data(dataset, index, labels):
 
 
 def semantic2onehot(mask, labels):
+    print(mask.shape)
     mask_ = []
     for index, label in enumerate(labels):
         mask_temp = np.zeros_like(mask)
@@ -83,10 +84,10 @@ class Dataset(data.Dataset):
             weight_map = np.flipud(weight_map)
         image = self.composed(image)
         mask = np.array(mask)
-        print("x", mask.shape)
+        #print("x", mask.shape)
         mask = semantic2onehot(mask, self.labels)
-        print(self.labels)
-        print("y", mask.shape)
+        # print(self.labels)
+        #print("y", mask.shape)
         image = normalize(image)
         mask = mask.astype(np.float32)
         #weight_map = torch.from_numpy(weight_map.copy()).float()
