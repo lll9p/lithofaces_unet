@@ -91,7 +91,7 @@ class Model():
         # Data loading code
         config = self.config
         datasets = get_datasets(file_path=dataset_path, modes=[
-                                'train', 'val', 'test'])
+                                'train', 'val'])
         train_dataset = Dataset(
             datasets, root=self.root, mode='train', labels=config.labels)
         val_dataset = Dataset(
