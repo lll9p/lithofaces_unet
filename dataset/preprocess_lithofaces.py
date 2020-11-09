@@ -262,49 +262,63 @@ def split_to_256(image, mask, label):
             assert mask_block.shape == (256, 256), f"{mask_block.shape} Wrong!"
 
     return images, masks, weight_maps
-val_images = {"3":[0],
-            "5":[0,2],
-            "9":[1],
-            "20":[3],
-            "22":[3],
-            "26":[0,3],
-             }
-def form_datasets(results,val_images):
-    val_dataset = dict(images=[],masks=[],weight_maps=[],idx=[])
-    train_dataset = dict(images=[],masks=[],weight_maps=[],idx=[])
-    for result in tqdm(results,total=len(results)):
-        image_id,image,mask,label = result
+
+
+# val_images = {"3": [0],
+#              "5": [0, 2],
+#              "9": [1],
+#              "20": [3],
+#              "22": [3],
+#              "26": [0, 3],
+#              }
+
+
+def form_datasets(results, val_images, label_map):
+    val_dataset = dict(images=[], masks=[], weight_maps=[], idx=[])
+    train_dataset = dict(images=[], masks=[], weight_maps=[], idx=[])
+    for result in tqdm(results, total=len(results)):
+        image_id, image, mask, label = result
         if image_id in val_images:
             # 若是在预选的val图片
             split_idx = val_images[image_id]
-            for index,split_block in enumerate(split_four(image.shape[:2])):
-                _, [y,y_stop],[x,x_stop] = split_block
-                images,masks,weight_maps=split_to_256(image[y:y_stop,x:x_stop,...],mask[y:y_stop,x:x_stop],label)
-                masks = [mask_instance_to_semantic(mask,label,label_map) for mask in masks]
+            for index, split_block in enumerate(split_four(image.shape[:2])):
+                _, [y, y_stop], [x, x_stop] = split_block
+                images, masks, weight_maps = split_to_256(
+                    image[y:y_stop, x:x_stop, ...], mask[y:y_stop, x:x_stop], label)
+                masks = [mask_instance_to_semantic(
+                    mask, label, label_map) for mask in masks]
                 if index in split_idx:
-                    val_dataset["images"]+=images
-                    val_dataset["masks"]+=masks
-                    val_dataset["weight_maps"]+=weight_maps
-                    val_dataset["idx"] += [f"{image_id}-V{index}-{i}" for i in range(len(images))]
+                    val_dataset["images"] += images
+                    val_dataset["masks"] += masks
+                    val_dataset["weight_maps"] += weight_maps
+                    val_dataset["idx"] += [
+                        f"{image_id}-V{index}-{i}" for i in range(len(images))]
                 else:
-                    train_dataset["images"]+=images
-                    train_dataset["masks"]+=masks
-                    train_dataset["weight_maps"]+=weight_maps
-                    train_dataset["idx"] += [f"{image_id}-T{index}-{i}" for i in range(len(images))]
+                    train_dataset["images"] += images
+                    train_dataset["masks"] += masks
+                    train_dataset["weight_maps"] += weight_maps
+                    train_dataset["idx"] += [
+                        f"{image_id}-T{index}-{i}" for i in range(len(images))]
         else:
-            images,masks,weight_maps=split_to_256(image,mask,label)
-            masks = [mask_instance_to_semantic(mask,label,label_map) for mask in masks]
-            train_dataset["images"]+=images
-            train_dataset["masks"]+=masks
-            train_dataset["weight_maps"]+=weight_maps
-            train_dataset["idx"] += [f"{image_id}-T0-{i}" for i in range(len(images))]
-    datasets = dict(train = train_dataset,val=val_dataset)
+            images, masks, weight_maps = split_to_256(image, mask, label)
+            masks = [mask_instance_to_semantic(
+                mask, label, label_map) for mask in masks]
+            train_dataset["images"] += images
+            train_dataset["masks"] += masks
+            train_dataset["weight_maps"] += weight_maps
+            train_dataset["idx"] += [
+                f"{image_id}-T0-{i}" for i in range(len(images))]
+    datasets = dict(train=train_dataset, val=val_dataset)
     return datasets
+
+
 def grouper(iterable, n, fillvalue=None):
     "Collect data into fixed-length chunks or blocks"
     # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
     args = [iter(iterable)] * n
     return zip_longest(*args, fillvalue=fillvalue)
+
+
 def dataset_file_init(path="lithofaces.h5",
                       datasets=None,
                       images_shape=None,
@@ -321,6 +335,8 @@ def dataset_file_init(path="lithofaces.h5",
             #idxes = [s.encode('ascii') for s in dataset['idx']]
             file.create_dataset(f"{dataset_name}/idx", shape=(len(dataset['idx']),),
                                 dtype='S10', compression="gzip", compression_opts=4, chunks=True)
+
+
 def dataset_to_h5(datasets, dataset_path="lithofaces.h5"):
     dataset_file_init(path=dataset_path,
                       datasets=datasets,
@@ -330,14 +346,16 @@ def dataset_to_h5(datasets, dataset_path="lithofaces.h5"):
     with h5py.File(dataset_path, "a") as file:
         for dataset_name, dataset in datasets.items():
             dataset_len = len(dataset["images"])
-            assert len(dataset['masks'])==dataset_len
-            assert len(dataset['weight_maps'])==dataset_len
-            assert len(dataset['idx'])==dataset_len
+            assert len(dataset['masks']) == dataset_len
+            assert len(dataset['weight_maps']) == dataset_len
+            assert len(dataset['idx']) == dataset_len
             file[f"{dataset_name}/images"][:] = np.stack(dataset["images"])
             #_masks = np.stack(masks)
             file[f"{dataset_name}/masks"][:] = np.stack(dataset["masks"])
-            file[f"{dataset_name}/weight_maps"][:] = np.stack(dataset["weight_maps"])
-            file[f"{dataset_name}/idx"][:] = [s.encode('ascii') for s in dataset['idx']]
+            file[f"{dataset_name}/weight_maps"][:
+                                                ] = np.stack(dataset["weight_maps"])
+            file[f"{dataset_name}/idx"][:] = [s.encode('ascii')
+                                              for s in dataset['idx']]
 #translations={'A矿': 'Alite', 'B矿': 'Blite', 'C3A': 'C3A', '游离钙': 'fCaO', '孔洞': 'Pore'}
 #select_classes=['Alite', 'Blite', 'C3A', 'Pore']
 #image_ranges = list(range(31))+[38,39]
