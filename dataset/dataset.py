@@ -83,6 +83,7 @@ class Dataset(data.Dataset):
         mask = np.array(mask)
         print("x", mask.shape)
         mask = semantic2onehot(mask, self.labels)
+        print(self.labels)
         print("y", mask.shape)
         image = normalize(image)
         mask = mask.astype(np.float32)
