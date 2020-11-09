@@ -92,6 +92,7 @@ class Dataset(data.Dataset):
             dataset=self.dataset, index=index, labels=self.labels)
         if self.transforms is not None:
             image, mask, weight_map = self.transforms(image, mask, weight_map)
+        print(mask.shape)
         return image, mask, weight_map, idx.decode()
 
     def __len__(self):
