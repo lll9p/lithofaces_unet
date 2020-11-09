@@ -45,15 +45,14 @@ class Dataset(data.Dataset):
         self.labels = labels
         self.dataset = dataset[mode]
         self.mode = mode
-        if self.mode == 'train':
-            self.composed = transforms.Compose([
-                transforms.RandomApply([
-                    transforms.ColorJitter(brightness=0.1),
-                    transforms.ColorJitter(contrast=0.1),
-                    transforms.ColorJitter(saturation=0.15),
-                    transforms.ColorJitter(hue=0.1)
-                ], p=0.2),
-            ])
+        self.composed = transforms.Compose([
+            transforms.RandomApply([
+                transforms.ColorJitter(brightness=0.1),
+                transforms.ColorJitter(contrast=0.1),
+                transforms.ColorJitter(saturation=0.15),
+                transforms.ColorJitter(hue=0.1)
+            ], p=0.2),
+        ])
 
     def transforms(self, image, mask, weight_map):
         def normalize(image):
