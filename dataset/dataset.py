@@ -47,7 +47,6 @@ class Dataset(data.Dataset):
         self.mode = mode
         if self.mode == 'train':
             self.composed = transforms.Compose([
-                transforms.ToPILImage(),
                 transforms.RandomApply([
                     transforms.ColorJitter(brightness=0.1),
                     transforms.ColorJitter(contrast=0.1),
@@ -82,7 +81,9 @@ class Dataset(data.Dataset):
             weight_map = np.flipud(weight_map)
         image = self.composed(image)
         mask = semantic2onehot(np.array(mask), self.labels)
-        return normalize(image), torch.from_numpy(mask).float(), torch.from_numpy(weight_map.copy()).float()
+        image = normalize(image)
+        print(image.shape)
+        return normalize(image), torch.from_numpy(mask.copy()).float(), torch.from_numpy(weight_map.copy()).float()
 
     def __getitem__(self, index):
         image, mask, weight_map, idx = get_data(
