@@ -42,10 +42,11 @@ class Dataset(data.Dataset):
 
     def transforms(self, image, masks):
         def normalize(image):
+            # Calculate from whole lithofaces data
             return transforms.Compose([
                 transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225]),
+                transforms.Normalize(mean=[0.280313914506407,0.41555059997248583,0.3112942716287795],
+                                     std=[0.16130980680117304,0.19598465956271507,0.14531163979659875]),
             ])(image)
         if self.mode == 'train':
             composed = transforms.Compose([
@@ -55,7 +56,7 @@ class Dataset(data.Dataset):
                     transforms.ColorJitter(contrast=0.1),
                     transforms.ColorJitter(saturation=0.15),
                     transforms.ColorJitter(hue=0.1)
-                ], p=0.1),
+                ], p=0.2),
             ])
         else:
             composed = transforms.Compose([
