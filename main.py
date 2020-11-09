@@ -37,7 +37,7 @@ class Model():
         # Defile loss function(criterion)
         self.criterion = losses.__dict__[config.loss]().cuda()
 
-        cudnn.benchmark = True
+        #cudnn.benchmark = True
 
         # Create model
         print(f"=>Ccreating model {config.model}")
@@ -119,7 +119,7 @@ class Model():
 
         #pbar = tqdm(total=len(train_loader), position=1, leave=True)
         pbar.total = len(train_loader)
-        for input, target,weight_map, _ in train_loader:
+        for input, target, weight_map, _ in train_loader:
             input = input.cuda()
             target = target.cuda()
 
@@ -178,7 +178,7 @@ class Model():
         with torch.no_grad():
             #pbar = tqdm(total=len(val_loader), position=2, leave=True)
             pbar.total = len(val_loader)
-            for input, target, weight_map,_ in val_loader:
+            for input, target, weight_map, _ in val_loader:
                 input = input.cuda()
                 target = target.cuda()
 
@@ -314,7 +314,7 @@ class Model():
             os.makedirs(os.path.join(
                 'outputs', config.name, str(c)), exist_ok=True)
         with torch.no_grad():
-            for input, target, weight_map,meta in tqdm(self.val_loader, total=len(self.val_loader)):
+            for input, target, weight_map, meta in tqdm(self.val_loader, total=len(self.val_loader)):
                 input = input.cuda()
                 target = target.cuda()
 
