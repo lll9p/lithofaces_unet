@@ -47,6 +47,7 @@ class Dataset(data.Dataset):
         self.mode = mode
         if self.mode == 'train':
             self.composed = transforms.Compose([
+                transforms.ToPILImage(),
                 transforms.RandomApply([
                     transforms.ColorJitter(brightness=0.1),
                     transforms.ColorJitter(contrast=0.1),
