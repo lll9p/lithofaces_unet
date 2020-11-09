@@ -85,7 +85,7 @@ class Dataset(data.Dataset):
         image = normalize(image)
         #mask = torch.from_numpy(mask.copy()).float()
         #weight_map = torch.from_numpy(weight_map.copy()).float()
-        return image, mask, weight_map
+        return image, mask.astype(np.float32), weight_map
 
     def __getitem__(self, index):
         image, mask, weight_map, idx = get_data(
