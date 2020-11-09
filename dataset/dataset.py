@@ -80,12 +80,13 @@ class Dataset(data.Dataset):
             mask = transforms.functional.vflip(mask)
             weight_map = np.flipud(weight_map)
         image = self.composed(image)
-        mask = semantic2onehot(np.array(mask), self.labels)
+        mask = np.array(mask)
+        print(mask.shape)
+        mask = semantic2onehot(mask, self.labels)
         # print(mask.shape)
         image = normalize(image)
         mask = mask.astype(np.float32)
         #weight_map = torch.from_numpy(weight_map.copy()).float()
-        print(mask.shape)
         return image, mask, weight_map.copy()
 
     def __getitem__(self, index):
