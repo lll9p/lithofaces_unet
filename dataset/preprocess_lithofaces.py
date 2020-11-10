@@ -155,6 +155,7 @@ def get_unet_border_weight_map(annotation, w0=5.0, sigma=13.54591536778324, eps=
     from boundary of cells to another
     Note: The below method only works for UNet Segmentation only
     """
+    print(img_id)
     # if there is only one label, zero return the array as is
     if np.sum(annotation) == 0:
         return annotation
@@ -207,7 +208,6 @@ def get_unet_border_weight_map(annotation, w0=5.0, sigma=13.54591536778324, eps=
             distance_maps[:, :, index] = \
                 scipy.ndimage.distance_transform_edt(mask)
     distance_maps = np.sort(distance_maps, 2)
-    print(img_id)
     d1 = distance_maps[:, :, 0]
     d2 = distance_maps[:, :, 1]
     border_loss_map = w0 * np.exp((-1 * (d1 + d2) ** 2) / (2 * (sigma ** 2)))
@@ -256,7 +256,8 @@ def split_to_256(image, mask, label, img_id):
                 continue
             images.append(image_block)
             masks.append(mask_block)
-            weight_maps.append(get_unet_border_weight_map(mask_block, img_id))
+            weight_maps.append(get_unet_border_weight_map(
+                mask_block, img_id=img_id))
             # convert mask to semantic
             assert image_block.shape == (
                 256, 256, 3), f"{image_block.shape} Wrong!"
