@@ -139,7 +139,7 @@ def balancewm(mask):
 #wc = balancewm(annotation)
 
 
-def get_unet_border_weight_map(annotation, w0=5.0, sigma=13.54591536778324, eps=1e-32,img_id):
+def get_unet_border_weight_map(annotation, w0=5.0, sigma=13.54591536778324, eps=1e-32,img_id=None):
     # https://github.com/czbiohub/microDL/blob/master/micro_dl/utils/masks.py
     """
     Return weight map for borders as specified in UNet paper
