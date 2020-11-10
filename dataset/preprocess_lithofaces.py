@@ -177,6 +177,7 @@ def get_unet_border_weight_map(annotation, w0=5.0, sigma=13.54591536778324, eps=
     inner = scipy.ndimage.distance_transform_edt(annotation)
     inner = (inner.max()-inner)/inner.max()
     inner[annotation == 0] = 0
+    # if there is only one label or only background
     if len(np.unique(labeled_array)) == 1:
         return inner
 #     # class balance weights w_c(x)
