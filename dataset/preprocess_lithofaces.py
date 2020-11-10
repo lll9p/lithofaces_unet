@@ -139,7 +139,7 @@ def balancewm(mask):
 #wc = balancewm(annotation)
 
 
-def get_unet_border_weight_map(annotation, w0=5.0, sigma=13.54591536778324, eps=1e-32,img_id=None):
+def get_unet_border_weight_map(annotation, w0=5.0, sigma=13.54591536778324, eps=1e-32, img_id=None):
     # https://github.com/czbiohub/microDL/blob/master/micro_dl/utils/masks.py
     """
     Return weight map for borders as specified in UNet paper
@@ -211,7 +211,7 @@ def get_unet_border_weight_map(annotation, w0=5.0, sigma=13.54591536778324, eps=
     try:
         d2 = distance_maps[:, :, 1]
     except:
-        d2=0.0
+        d2 = 0.0
         print(img_id)
     border_loss_map = w0 * np.exp((-1 * (d1 + d2) ** 2) / (2 * (sigma ** 2)))
 
@@ -222,7 +222,7 @@ def get_unet_border_weight_map(annotation, w0=5.0, sigma=13.54591536778324, eps=
     return border_loss_map+inner
 
 
-def split_to_256(image, mask, label,img_id):
+def split_to_256(image, mask, label, img_id):
     # image or mask
     y_size, x_size = image.shape[:2]
     resize_factors = {"768": [1, 2**0.5, 2, 3, 4],
@@ -259,7 +259,7 @@ def split_to_256(image, mask, label,img_id):
                 continue
             images.append(image_block)
             masks.append(mask_block)
-            weight_maps.append(get_unet_border_weight_map(mask_block),img_id)
+            weight_maps.append(get_unet_border_weight_map(mask_block, img_id))
             # convert mask to semantic
             assert image_block.shape == (
                 256, 256, 3), f"{image_block.shape} Wrong!"
@@ -288,7 +288,7 @@ def form_datasets(results, val_images, label_map):
             for index, split_block in enumerate(split_four(image.shape[:2])):
                 _, [y, y_stop], [x, x_stop] = split_block
                 images, masks, weight_maps = split_to_256(
-                    image[y:y_stop, x:x_stop, ...], mask[y:y_stop, x:x_stop], label,image_id)
+                    image[y:y_stop, x:x_stop, ...], mask[y:y_stop, x:x_stop], label, image_id)
                 masks = [mask_instance_to_semantic(
                     mask, label, label_map) for mask in masks]
                 if index in split_idx:
@@ -304,7 +304,8 @@ def form_datasets(results, val_images, label_map):
                     train_dataset["idx"] += [
                         f"{image_id}-T{index}-{i}" for i in range(len(images))]
         else:
-            images, masks, weight_maps = split_to_256(image, mask, label,image_id)
+            images, masks, weight_maps = split_to_256(
+                image, mask, label, image_id)
             masks = [mask_instance_to_semantic(
                 mask, label, label_map) for mask in masks]
             train_dataset["images"] += images
