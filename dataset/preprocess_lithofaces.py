@@ -207,12 +207,9 @@ def get_unet_border_weight_map(annotation, w0=5.0, sigma=13.54591536778324, eps=
             distance_maps[:, :, index] = \
                 scipy.ndimage.distance_transform_edt(mask)
     distance_maps = np.sort(distance_maps, 2)
+    print(img_id)
     d1 = distance_maps[:, :, 0]
-    try:
-        d2 = distance_maps[:, :, 1]
-    except:
-        d2 = 0.0
-        print(img_id)
+    d2 = distance_maps[:, :, 1]
     border_loss_map = w0 * np.exp((-1 * (d1 + d2) ** 2) / (2 * (sigma ** 2)))
 
     zero_label = np.zeros(
