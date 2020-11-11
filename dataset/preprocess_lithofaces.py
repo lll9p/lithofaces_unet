@@ -224,7 +224,7 @@ def get_unet_border_weight_map(annotation, w0=5.0, sigma=13.54591536778324, eps=
 def split_to_256(image, mask, label):
     # image or mask
     y_size, x_size = image.shape[:2]
-    resize_factors = {"768": [1, 2**0.5, 2, 3, 4],
+    resize_factors = {"768": [1, 2**0.5, 2],
                       "1536": [1, 2**0.5, 2, 3, 4], "384": [1, 2**0.5]}
     images, masks, weight_maps = [], [], []
     for i in resize_factors[f"{y_size}"]:

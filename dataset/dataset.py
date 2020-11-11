@@ -78,6 +78,11 @@ class Dataset(data.Dataset):
             image = transforms.functional.vflip(image)
             mask = transforms.functional.vflip(mask)
             weight_map = np.flipud(weight_map)
+        # Random rotate90
+        if random.random() > .5:
+            image = transforms.functional.vflip(image)
+            mask = transforms.functional.vflip(mask)
+            weight_map = np.flipud(weight_map)
         image = self.composed(image)
         mask = np.array(mask)
         #print("x", mask.shape)
