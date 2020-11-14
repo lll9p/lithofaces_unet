@@ -1,0 +1,35 @@
+!!python/object/new:config.config.Config
+dictitems:
+  batch_size: 20
+  dataset: minerals_224
+  deep_supervision: true
+  early_stopping: -1
+  epochs: 50
+  factor: 0.1
+  gamma: 0.6666666666666666
+  ignore_labels: []
+  img_ext: .png
+  input_channels: 3
+  input_height: 224
+  input_wide: 224
+  labels:
+  - Alite
+  - Blite
+  - C3A
+  - Pore
+  learning_rate: 0.001
+  loss: BCEDiceLoss
+  mask_ext: .png
+  milestones: 1,2
+  min_learning_rate: 1.0e-05
+  model: NestedUNet
+  momentum: 0.9
+  name: minerals_224_NestedUNet_wDS
+  nesterov: false
+  num_classes: 4
+  num_workers: 4
+  optimizer: Adam
+  path: /home/lao/Data/lithofaces.h5
+  patience: 2
+  scheduler: CosineAnnealingLR
+  weight_decay: 0.0001

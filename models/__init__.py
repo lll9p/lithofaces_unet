@@ -1,11 +1,10 @@
-from .UNet import UNet
-from .UNet_2Plus import UNet_2Plus
-from .Nested_UNet import NestedUNet
-from .UNet_3Plus import UNet_3Plus, UNet_3Plus_DeepSup, UNet_3Plus_DeepSup_CGM
-__all__ = ['UNet',
-           "UNet_2Plus",
-           'NestedUNet',
-           "UNet_3Plus",
-           "UNet_3Plus_DeepSup",
-           "UNet_3Plus_DeepSup_CGM"
-           ]
+from .Nested_UNet import NestedUNet, UNet
+
+
+def get_model(config):
+    model = None
+    if config.model == "NestedUNet":
+        model = NestedUNet(config.num_classes,
+                           config.input_channels,
+                           config.deep_supervision)
+    return model

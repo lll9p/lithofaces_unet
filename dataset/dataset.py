@@ -24,25 +24,36 @@ def get_datasets(file_path, modes=['train', 'val']):
     return datasets
 
 
-def get_data(dataset, index, labels):
+def get_data(dataset, index):
     # masks selector
     (image, mask, weight_map, idx) = (
         dataset[0][index], dataset[1][index], dataset[2][index], dataset[3][index])
-    #mask = semantic2onehot(mask, labels)
     return image, mask, weight_map, idx
 
 
-def semantic2onehot(mask, labels):
-    mask_ = np.zeros((len(labels),)+mask.shape, dtype=np.uint8)
-    for index, label in enumerate(labels):
+def labels2num(labels, ignore_labels):
+    labelnums = []
+    for i, label in enumerate(labels):
+        if label in ignore_labels:
+            continue
+        labelnums.append(i)
+    return labelnums
+
+
+def semantic2onehot(mask, labels, ignore_labels):
+    labelnums = labels2num(labels, ignore_labels)
+    mask_ = np.zeros((len(labelnums),)+mask.shape, dtype=np.uint8)
+    for index, label in enumerate(labelnums):
         mask_[index][mask == label] = 1
     return mask_
 
 
 class Dataset(data.Dataset):
-    def __init__(self, dataset, root, mode='train', classes=list(range(11)), labels=None):
+    def __init__(self, dataset, root, config=None, mode='train'):
+        self.config = config
         self.root = root
-        self.labels = labels
+        self.labels = config.labels
+        self.ignore_labels = config.ignore_labels
         self.dataset = dataset[mode]
         self.mode = mode
         self.composed = transforms.Compose([
@@ -80,13 +91,13 @@ class Dataset(data.Dataset):
             weight_map = np.flipud(weight_map)
         # Random rotate90
         if random.random() > .5:
-            image = transforms.functional.vflip(image)
-            mask = transforms.functional.vflip(mask)
-            weight_map = np.flipud(weight_map)
+            image = transforms.functional.rotate(image, 90)
+            mask = transforms.functional.rotate(mask, 90)
+            weight_map = np.rot90(weight_map)
         image = self.composed(image)
         mask = np.array(mask)
         #print("x", mask.shape)
-        mask = semantic2onehot(mask, self.labels)
+        mask = semantic2onehot(mask, self.labels, self.ignore_labels)
         # print(self.labels)
         #print("y", mask.shape)
         image = normalize(image)
@@ -96,7 +107,7 @@ class Dataset(data.Dataset):
 
     def __getitem__(self, index):
         image, mask, weight_map, idx = get_data(
-            dataset=self.dataset, index=index, labels=self.labels)
+            dataset=self.dataset, index=index)
         if self.transforms is not None:
             image, mask, weight_map = self.transforms(image, mask, weight_map)
         return image, mask, weight_map, idx.decode()

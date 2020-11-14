@@ -5,23 +5,22 @@ import cv2
 import pandas as pd
 import torch
 import torch.backends.cudnn as cudnn
-import torch.optim as optim
 import yaml
 from sklearn.model_selection import train_test_split
-from torch.optim import lr_scheduler
 from tqdm.autonotebook import tqdm
 
 import losses
-import models
+from models import get_model
 from dataset import Dataset, get_datasets
-from utils import AverageMeter, iou_score, parse_args, str2bool
+from utils import AverageMeter, iou_score, get_optimizer, get_scheduler
+from config import Config
 import pathlib
 
 
 class Model():
     def __init__(self, config=None, model='UNet_3Plus_DeepSup'):
         if config is None:
-            config = parse_args().parse_args()
+            config = Config()
         self.root = pathlib.Path(config.path)
         if config.name is None:
             name = f'{config.dataset}_{config.model}'
@@ -32,8 +31,7 @@ class Model():
         for key in config.__dict__:
             print(f'{key}: {config.__dict__[key]}')
         print('-' * 20)
-        with open('models/%s/config.yml' % config.name, 'w') as f:
-            yaml.dump(config, f)
+        config.save(f'models/{config.name}/config.yml')
         # Defile loss function(criterion)
         self.criterion = losses.__dict__[config.loss]().cuda()
 
@@ -41,51 +39,13 @@ class Model():
 
         # Create model
         print(f"=>Ccreating model {config.model}")
-        (num_classes,
-         input_channels,
-         deep_supervision) = (config.num_classes,
-                              config.input_channels,
-                              config.deep_supervision)
-        model = models.__dict__[config.model](num_classes,
-                                              input_channels,
-                                              deep_supervision)
+        model = get_model(config)
         self.model = model.cuda()
         params = filter(lambda p: p.requires_grad,
                         self.model.parameters())
-        if config.optimizer == 'Adam':
-            optimizer = optim.Adam(
-                params, lr=config.learning_rate,
-                weight_decay=config.weight_decay)
-        elif config.optimizer == 'SGD':
-            optimizer = optim.SGD(params, lr=config.learning_rate,
-                                  momentum=config.momentum,
-                                  nesterov=config.nesterov,
-                                  weight_decay=config.weight_decay)
-        else:
-            raise NotImplementedError
-        if config.scheduler == 'CosineAnnealingLR':
-            scheduler = lr_scheduler.CosineAnnealingLR(
-                optimizer, T_max=config.epochs,
-                eta_min=config.min_learning_rate)
-        elif config.scheduler == 'ReduceLROnPlateau':
-            scheduler = lr_scheduler.ReduceLROnPlateau(optimizer,
-                                                       factor=config.factor,
-                                                       patience=config.patience,
-                                                       verbose=1,
-                                                       min_lr=config.min_learning_rate)
-        elif config.scheduler == 'MultiStepLR':
-            scheduler = lr_scheduler.MultiStepLR(optimizer,
-                                                 milestones=[
-                                                     int(e) for e in config.milestones.split(',')],
-                                                 gamma=config.gamma)
-        elif config.scheduler == 'ConstantLR':
-            scheduler = None
-        else:
-            raise NotImplementedError
-
         self.config = config
-        self.optimizer = optimizer
-        self.scheduler = scheduler
+        self.optimizer = get_optimizer(config, params)
+        self.scheduler = get_scheduler(config, self.optimizer)
 
     def setup_dataset(self, dataset_path):
         # Data loading code
@@ -93,9 +53,9 @@ class Model():
         datasets = get_datasets(file_path=dataset_path, modes=[
                                 'train', 'val'])
         train_dataset = Dataset(
-            datasets, root=self.root, mode='train', labels=config.labels)
+            datasets, root=self.root, mode='train', config=config)
         val_dataset = Dataset(
-            datasets, root=self.root, mode='val', labels=config.labels)
+            datasets, root=self.root, mode='val', config=config)
 
         self.train_loader = torch.utils.data.DataLoader(
             train_dataset,
@@ -339,8 +299,10 @@ class Model():
         torch.cuda.empty_cache()
 
 
-# if __name__ == "__main__":
-#    config = parse_args().parse_args()
-#    model = Model(config=config)
-#    model.setup_dataset()
-#    model.train()
+if __name__ == "__main__":
+    config = Config()
+    config.path = '/home/lao/Data/lithofaces.h5'
+    config.batch_size = 20
+    model = Model(config=config)
+    model.setup_dataset(config.path)
+    model.train()
