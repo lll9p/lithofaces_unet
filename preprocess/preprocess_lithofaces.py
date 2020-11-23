@@ -186,6 +186,10 @@ def get_unet_border_weight_map(annotation, w0=5.0, sigma=13.54591536778324, eps=
     # if there is only one label or only background
     if len(np.unique(labeled_array)) == 1:
         return inner
+    # if there is only one label and background
+    if len(np.unique(labeled_array)) == 2:
+        if 0 in np.unique(labeled_array):
+            return inner
 #     # class balance weights w_c(x)
 #     unique_values = np.unique(labeled_array).tolist()
 #     weight_map = [0] * len(unique_values)
