@@ -15,6 +15,7 @@ import numpy as np
 import scipy
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
+from skimage import morphology
 from tqdm.autonotebook import tqdm
 
 kernel = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]])
@@ -269,9 +270,14 @@ def split_to_256(image, mask, label):
             masks.append(mask_block)
             weight_map_block = mask_block.copy()
             # 去掉边界再计算weightmap
-            weight_map_block[weight_map_block == label['edges'][0]] = 0
-            weight_maps.append(get_unet_border_weight_map(
-                weight_map_block))
+            edges = weight_map_block == label['edges'][0]
+            weight_map_block[edges] = 0
+            # 腐蚀3pixel
+            weight_map_block = morphology.erosion(
+                weight_map_block, morphology.disk(3))
+            weight_map = get_unet_border_weight_map(
+                weight_map_block)
+            weight_maps.append(weight_map)
             # convert mask to semantic
             assert image_block.shape == (
                 256, 256, 3), f"{image_block.shape} Wrong!"
