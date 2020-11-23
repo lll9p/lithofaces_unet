@@ -59,6 +59,9 @@ def fix_edge(mask, kernel=kernel):
     mask_new = np.zeros(mask.shape, dtype=np.uint16)
     touched = np.zeros(mask.shape, dtype=np.uint16)
     for shape_id in shape_classes:
+        if shape_id == 0:
+            # background
+            continue
         # 图形边界
         shape_ = (mask == shape_id).astype(np.uint16)
 
