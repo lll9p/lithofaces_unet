@@ -19,7 +19,20 @@ from skimage import morphology
 from tqdm.autonotebook import tqdm
 
 kernel = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]])
-
+def get_val_images(image_ranges):
+    four_blocks = list(range(4))
+    val_images=dict()
+    from sklearn.model_selection import train_test_split
+    image_blocks = list()
+    for block in four_blocks:
+        for image in image_ranges:
+            image_blocks.append(f"{image}-{block}")
+    train,val = train_test_split(image_blocks,test_size=0.2,random_state=42)
+    for val_id in val:
+        image,i = val_id.split("-")
+        val_images.setdefault(image,[])
+        val_images[image].append(int(i))
+    return val_images
 
 def mask_instance_to_semantic(mask, label, label_map):
     mask_temp = np.zeros_like(mask, dtype=mask.dtype)
@@ -469,14 +482,14 @@ if __name__ == "__main__":
     class_weights = class_weight(select_classes, results, label_map)
     with open("/home/lao/Data/class_weights.txt", mode="w") as file:
         file.write(class_weights.__repr__())
-
-    val_images = {"3": [0],
-                  "5": [0, 2],
-                  "9": [1],
-                  "20": [3],
-                  "22": [3],
-                  "26": [0, 3],
-                  }
+    val_images = get_val_images(image_ranges)
+    #val_images = {"3": [0],
+    #              "5": [0, 2],
+    #              "9": [1],
+    #              "20": [3],
+    #              "22": [3],
+    #              "26": [0, 3],
+    #              }
     print("Generating Datasets.")
     datasets = form_datasets(results, val_images, label_map)
     print("Generating hdf5 file from Datasets.")
