@@ -31,16 +31,14 @@ def get_data(dataset, index):
     return image, mask, weight_map, idx
 
 
-def labels2num(labels, ignore_labels):
-    labelnums = []
-    for i, label in enumerate(labels):
-        if label in ignore_labels:
-            continue
-        labelnums.append(i)
-    return labelnums
-
-
 def semantic2onehot(mask, labels, ignore_labels):
+    def labels2num(labels, ignore_labels):
+        labelnums = []
+        for i, label in enumerate(labels):
+            if label in ignore_labels:
+                continue
+            labelnums.append(i)
+        return labelnums
     labelnums = labels2num(labels, ignore_labels)
     mask_ = np.zeros((len(labelnums),)+mask.shape, dtype=np.uint8)
     for index, label in enumerate(labelnums):
@@ -53,7 +51,6 @@ class Dataset(data.Dataset):
         self.config = config
         self.root = root
         self.labels = config.labels
-        self.ignore_labels = config.ignore_labels
         self.dataset = dataset[mode]
         self.mode = mode
         self.composed = transforms.Compose([
@@ -96,10 +93,6 @@ class Dataset(data.Dataset):
             weight_map = np.rot90(weight_map)
         image = self.composed(image)
         mask = np.array(mask)
-        #print("x", mask.shape)
-        mask = semantic2onehot(mask, self.labels, self.ignore_labels)
-        # print(self.labels)
-        #print("y", mask.shape)
         image = normalize(image)
         mask = mask.astype(np.float32)
         #weight_map = torch.from_numpy(weight_map.copy()).float()

@@ -26,12 +26,12 @@ class Model():
             name = f'{config.dataset}_{config.model}'
             config.name = name + \
                 ('_wDS' if config.deep_supervision else '_woDS')
-        os.makedirs(f'models/{config.name}', exist_ok=True)
+        os.makedirs(f'networks/{config.name}', exist_ok=True)
         print('-' * 20)
         for key in config.__dict__:
             print(f'{key}: {config.__dict__[key]}')
         print('-' * 20)
-        config.save(f'models/{config.name}/config.yml')
+        config.save(f'networks/{config.name}/config.yml')
         # Defile loss function(criterion)
         self.criterion = losses.__dict__[config.loss]().cuda()
 
@@ -223,12 +223,12 @@ class Model():
             log['val_iou'].append(val_log['iou'])
 
             pd.DataFrame(log).to_csv(
-                f'models/{config.name}/log.csv', index=False)
+                f'networks/{config.name}/log.csv', index=False)
 
             trigger += 1
 
             if val_log['iou'] > best_iou:
-                torch.save(self.model.state_dict(), 'models/%s/model.pth' %
+                torch.save(self.model.state_dict(), 'networks/%s/model.pth' %
                            config.name)
                 best_iou = val_log['iou']
                 #pbar.display("=> saved best model")
@@ -246,7 +246,7 @@ class Model():
 
     def test(self):
         config = self.config
-        with open(f'models/{config.name}/config.yml', 'r') as f:
+        with open(f'networks/{config.name}/config.yml', 'r') as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
 
         print('-'*20)
@@ -264,7 +264,7 @@ class Model():
 
         model = model.cuda()
 
-        model.load_state_dict(torch.load(f'models/{config.name}/model.pth'
+        model.load_state_dict(torch.load(f'networks/{config.name}/model.pth'
                                          ))
         model.eval()
 
@@ -303,6 +303,7 @@ if __name__ == "__main__":
     config = Config()
     config.path = '/home/lao/Data/lithofaces.h5'
     config.batch_size = 20
+    config.epochs = 200
     model = Model(config=config)
     model.setup_dataset(config.path)
     model.train()
