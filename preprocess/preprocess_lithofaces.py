@@ -127,7 +127,7 @@ def process_original_dataset(image_node,
         edges[overlapping] = 1
         mask = mask + shape
     mask, touched = fix_edge(mask)
-    edges[touched] = 1
+    edges[touched.astype(bool)] = 1
     label_dict['edges'] = [max(np.unique(mask))+1]
     mask[edges.astype(bool)] = label_dict['edges'][0]
     return image_id, image, mask, label_dict
@@ -254,7 +254,7 @@ def split_to_256(image, mask, label):
             mask_resized[edges] = 0
             mask_new, touched = fix_edge(mask_resized)
             mask_new[edges] = label['edges'][0]
-            mask_new[touched] = label['edges'][0]
+            mask_new[touched.astype(bool)] = label['edges'][0]
         blocks = list(split(new_shape, 256))
         for block in blocks:
             pad_flag, [y, y_stop], [x, x_stop] = block
