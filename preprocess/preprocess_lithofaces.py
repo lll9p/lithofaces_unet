@@ -248,9 +248,9 @@ def split_to_256(image, mask, label):
                 mask, (new_shape[1], new_shape[0]), cv2.INTER_NEAREST)
             # 边界加强
             edges = mask_new == label['edges'][0]
-            edges = morphology.binary_erosion(
-                edges, morphology.disk(2))
-            mask_new = mask_new + edges
+            edges = morphology.binary_dilation(
+                edges, morphology.disk(2)) > 0
+            mask_new[edges] = label['edges'][0]
             # mask_resized = cv2.resize(
             # mask, (new_shape[1], new_shape[0]), cv2.INTER_NEAREST)
             # edges = mask_resized == label['edges'][0]
