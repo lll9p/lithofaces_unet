@@ -260,17 +260,13 @@ def split_to_256(image, mask, label):
                 shape_tmp_ = shape_tmp_ > 0
                 mask_new_tmp[shape_tmp_] = mask_new_i
             edges_tmp = mask_new_tmp == label['edges'][0]
+            mask_new_tmp[edges_tmp] = 0
+            mask_new_tmp, touched = fix_edge(mask_new_tmp)
+            edges = np.bitwise_or(edges_tmp, touched)
             edges = morphology.binary_dilation(
-                edges_tmp, morphology.square(2)) > 0
+                edges, morphology.square(1)) > 0
             mask_new_tmp[edges] = label['edges'][0]
             mask_new = mask_new_tmp
-            # mask_resized = cv2.resize(
-            # mask, (new_shape[1], new_shape[0]), cv2.INTER_NEAREST)
-            # edges = mask_resized == label['edges'][0]
-            # mask_resized[edges] = 0
-            # mask_new, touched = fix_edge(mask_resized)
-            # mask_new[edges] = label['edges'][0]
-            # mask_new[touched.astype(bool)] = label['edges'][0]
         blocks = list(split(new_shape, 256))
         for block in blocks:
             pad_flag, [y, y_stop], [x, x_stop] = block

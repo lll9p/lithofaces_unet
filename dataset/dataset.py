@@ -1,14 +1,9 @@
-import os
 import random
-import pathlib
-from functools import partial
 
-import cv2
+import h5py
 import numpy as np
-import torch
 from torch.utils import data
 from torchvision import transforms
-import h5py
 
 
 def get_datasets(file_path, modes=['train', 'val']):
@@ -27,7 +22,8 @@ def get_datasets(file_path, modes=['train', 'val']):
 def get_data(dataset, index):
     # masks selector
     (image, mask, weight_map, idx) = (
-        dataset[0][index], dataset[1][index], dataset[2][index], dataset[3][index])
+        dataset[0][index], dataset[1][index],
+        dataset[2][index], dataset[3][index])
     return image, mask, weight_map, idx
 
 
@@ -40,7 +36,7 @@ def semantic2onehot(mask, labels, ignore_labels):
             labelnums.append(i)
         return labelnums
     labelnums = labels2num(labels, ignore_labels)
-    mask_ = np.zeros((len(labelnums),)+mask.shape, dtype=np.uint8)
+    mask_ = np.zeros((len(labelnums),) + mask.shape, dtype=np.uint8)
     for index, label in enumerate(labelnums):
         mask_[index][mask == label] = 1
     return mask_
@@ -65,11 +61,13 @@ class Dataset(data.Dataset):
     def transforms(self, image, mask, weight_map):
         def normalize(image):
             # Calculate from whole lithofaces data
-            return transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.280313914506407, 0.41555059997248583, 0.3112942716287795],
-                                     std=[0.16130980680117304, 0.19598465956271507, 0.14531163979659875]),
-            ])(image)
+            return transforms.Compose(
+                [transforms.ToTensor(),
+                 transforms.Normalize(
+                     mean=[0.280313914506407, 0.41555059997248583,
+                           0.3112942716287795],
+                     std=[0.16130980680117304, 0.19598465956271507,
+                          0.14531163979659875]), ])(image)
         image = transforms.functional.to_pil_image(image)
         mask = transforms.functional.to_pil_image(mask)
         # RandomCrop
@@ -77,7 +75,7 @@ class Dataset(data.Dataset):
             image, output_size=(224, 224))
         image = transforms.functional.crop(image, i, j, h, w)
         mask = transforms.functional.crop(mask, i, j, h, w)
-        weight_map = weight_map[..., i:i+h, j:j+w]
+        weight_map = weight_map[..., i:i + h, j:j + w]
         if random.random() > .5:
             image = transforms.functional.hflip(image)
             mask = transforms.functional.hflip(mask)
@@ -95,7 +93,7 @@ class Dataset(data.Dataset):
         mask = np.array(mask)
         image = normalize(image)
         mask = mask.astype(np.float32)
-        #weight_map = torch.from_numpy(weight_map.copy()).float()
+        # weight_map = torch.from_numpy(weight_map.copy()).float()
         return image, mask, weight_map.copy()
 
     def __getitem__(self, index):
