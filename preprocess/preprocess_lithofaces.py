@@ -245,6 +245,7 @@ def split_to_256(image, mask, label):
         else:
             image_new = cv2.resize(image, (new_shape[1], new_shape[0]))
             # 边界加强
+            mask_new = mask.copy()
             edges = mask_new == label['edges'][0]
             mask_new[edges] = 0
             mask_new = cv2.resize(
