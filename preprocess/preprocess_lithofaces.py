@@ -1,10 +1,5 @@
-import copy
-import gc
 import multiprocessing
 import os
-import pathlib
-import shutil
-import time
 import xml.etree.ElementTree as ET
 from functools import partial
 from itertools import zip_longest
@@ -13,26 +8,27 @@ import cv2
 import h5py
 import numpy as np
 import scipy
-from sklearn.model_selection import train_test_split
-from sklearn.utils import shuffle
 from skimage import morphology
+from sklearn.model_selection import train_test_split
 from tqdm.autonotebook import tqdm
 
 kernel = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]])
+
+
 def get_val_images(image_ranges):
     four_blocks = list(range(4))
-    val_images=dict()
-    from sklearn.model_selection import train_test_split
+    val_images = dict()
     image_blocks = list()
     for block in four_blocks:
         for image in image_ranges:
             image_blocks.append(f"{image}-{block}")
-    train,val = train_test_split(image_blocks,test_size=0.2,random_state=42)
+    train, val = train_test_split(image_blocks, test_size=0.2, random_state=42)
     for val_id in val:
-        image,i = val_id.split("-")
-        val_images.setdefault(image,[])
+        image, i = val_id.split("-")
+        val_images.setdefault(image, [])
         val_images[image].append(int(i))
     return val_images
+
 
 def mask_instance_to_semantic(mask, label, label_map):
     mask_temp = np.zeros_like(mask, dtype=mask.dtype)
@@ -49,7 +45,7 @@ def split(shape, ywindow=256, xwindow=256):
     y_size, x_size = shape
     for y in range(0, y_size, ywindow):
         for x in range(0, x_size, xwindow):
-            ystop, xstop = y+ywindow, x+xwindow
+            ystop, xstop = y + ywindow, x + xwindow
             if ystop > y_size or xstop > x_size:
                 if ystop > y_size:
                     block = True, [y, y_size], [x, xstop]
@@ -64,7 +60,7 @@ def split(shape, ywindow=256, xwindow=256):
 
 def split_four(shape):
     y_size, x_size = shape
-    return split(shape, ywindow=y_size//2, xwindow=x_size//2)
+    return split(shape, ywindow=y_size // 2, xwindow=x_size // 2)
 
 
 def fix_edge(mask, kernel=kernel):
@@ -83,10 +79,10 @@ def fix_edge(mask, kernel=kernel):
 
         shape_edge = shape_ - shape_inner
         # 不含图形的mask
-        mask_ = (mask > 0).astype(np.uint16)-shape_
+        mask_ = (mask > 0).astype(np.uint16) - shape_
         mask_pad = np.pad(mask_, 1, mode='reflect')
         for (y, x) in np.argwhere(shape_edge):
-            if mask_pad[y:y+3, x:x+3].sum() != 0:
+            if mask_pad[y:y + 3, x:x + 3].sum() != 0:
                 shape_[y, x] = 0
                 touched[y, x] = 1
         shape_ *= shape_id
@@ -101,8 +97,6 @@ def process_original_dataset(image_node,
     """
     处理一张图片节点，生成contour,并把图片及countor分割为256x256->256x256,512x512->256x256
     """
-    pbar = None
-    #path = pathlib.Path(path)
     labels = label_map.keys()
     # get image id
     image_id = image_node.attrib['id']
@@ -122,8 +116,10 @@ def process_original_dataset(image_node,
         if label not in labels:
             continue
         shape_points = np.array(
-            [eval(_) for _ in polygon.attrib['points'].split(";")]).astype(np.int)
-        shape = cv2.drawContours(np.zeros(image.shape[:2], dtype=np.uint16),  # blank image
+            [eval(_) for _ in polygon.attrib['points'].split(";")]).astype(
+            np.int)
+        shape = cv2.drawContours(np.zeros(image.shape[:2], dtype=np.uint16),
+                                 # blank image
                                  [shape_points],  # contours
                                  -1,  # contour id
                                  label_num,  # contour color OR [255,255,255]
@@ -141,7 +137,7 @@ def process_original_dataset(image_node,
         mask = mask + shape
     mask, touched = fix_edge(mask)
     edges[touched.astype(bool)] = 1
-    label_dict['edges'] = [max(np.unique(mask))+1]
+    label_dict['edges'] = [max(np.unique(mask)) + 1]
     mask[edges.astype(bool)] = label_dict['edges'][0]
     return image_id, image, mask, label_dict
 
@@ -158,10 +154,13 @@ def balancewm(mask):
     for i in range(len(classes)):
         wc[mask == classes[i]] = freq[i]
     return wc
-#wc = balancewm(annotation)
 
 
-def get_unet_border_weight_map(annotation, w0=5.0, sigma=13.54591536778324, eps=1e-32):
+def get_unet_border_weight_map(
+        annotation,
+        w0=5.0,
+        sigma=13.54591536778324,
+        eps=1e-32):
     # https://github.com/czbiohub/microDL/blob/master/micro_dl/utils/masks.py
     """
     Return weight map for borders as specified in UNet paper
@@ -194,10 +193,10 @@ def get_unet_border_weight_map(annotation, w0=5.0, sigma=13.54591536778324, eps=
     # If cells are 8 connected/touching they are labeled as one single object
     # Loss metric on such borders is not useful
     # Not NEED to find labels
-    #labeled_array, _ = scipy.ndimage.measurements.label(annotation)
+    # labeled_array, _ = scipy.ndimage.measurements.label(annotation)
     labeled_array = annotation.copy()
     inner = scipy.ndimage.distance_transform_edt(annotation)
-    inner = (inner.max()-inner)/inner.max()
+    inner = (inner.max() - inner) / inner.max()
     inner[annotation == 0] = 0
     # if there is only one label or only background
     if len(np.unique(labeled_array)) == 1:
@@ -206,22 +205,6 @@ def get_unet_border_weight_map(annotation, w0=5.0, sigma=13.54591536778324, eps=
     if len(np.unique(labeled_array)) == 2:
         if 0 in np.unique(labeled_array):
             return inner
-#     # class balance weights w_c(x)
-#     unique_values = np.unique(labeled_array).tolist()
-#     weight_map = [0] * len(unique_values)
-#     for index, unique_value in enumerate(unique_values):
-#         mask = np.zeros(
-#             (annotation.shape[0], annotation.shape[1]), dtype=np.float64)
-#         mask[annotation == unique_value] = 1
-#         weight_map[index] = 1 / (mask.sum()+eps)
-
-#     # this normalization is important - foreground pixels must have weight 1
-#     weight_map = [i / max(weight_map) for i in weight_map]
-
-#     wc = np.zeros((annotation.shape[0], annotation.shape[1]), dtype=np.float64)
-#     for index, unique_value in enumerate(unique_values):
-#         wc[annotation == unique_value] = weight_map[index]
-
     # cells distance map
     border_loss_map = np.zeros(
         (annotation.shape[0], annotation.shape[1]), dtype=np.float64)
@@ -244,7 +227,7 @@ def get_unet_border_weight_map(annotation, w0=5.0, sigma=13.54591536778324, eps=
         (annotation.shape[0], annotation.shape[1]), dtype=np.float64)
     zero_label[labeled_array == 0] = 1
     border_loss_map = np.multiply(border_loss_map, zero_label)
-    return border_loss_map+inner
+    return border_loss_map + inner
 
 
 def split_to_256(image, mask, label):
@@ -254,7 +237,7 @@ def split_to_256(image, mask, label):
                       "1536": [1, 2**0.5, 2, 3, 4], "384": [1, 2**0.5]}
     images, masks, weight_maps = [], [], []
     for i in resize_factors[f"{y_size}"]:
-        new_shape = (int(y_size/i), int(x_size/i))
+        new_shape = (int(y_size / i), int(x_size / i))
         if new_shape[0] == y_size:
             # no need to resize
             image_new = image
@@ -267,7 +250,7 @@ def split_to_256(image, mask, label):
             mask_resized[edges] = 0
             mask_new, touched = fix_edge(mask_resized)
             mask_new[edges] = label['edges'][0]
-            #mask_new[touched.astype(bool)] = label['edges'][0]
+            # mask_new[touched.astype(bool)] = label['edges'][0]
         blocks = list(split(new_shape, 256))
         for block in blocks:
             pad_flag, [y, y_stop], [x, x_stop] = block
@@ -276,13 +259,17 @@ def split_to_256(image, mask, label):
             yy, xx = image_block.shape[:2]
             if yy == 0 or xx == 0:
                 continue
-            if 0.5 <= (yy/xx) and (yy/xx) <= 2.1:
+            if 0.5 <= (yy / xx) and (yy / xx) <= 2.1:
                 try:
                     image_block = np.pad(
-                        image_block, ((256-yy, 0), (256-xx, 0), (0, 0)), mode='reflect')
+                        image_block,
+                        ((256 - yy, 0), (256 - xx, 0), (0, 0)),
+                        mode='reflect')
                     mask_block = np.pad(
-                        mask_block, ((256-yy, 0), (256-xx, 0)), mode='reflect')
-                except:
+                        mask_block,
+                        ((256 - yy, 0), (256 - xx, 0)),
+                        mode='reflect')
+                except BaseException:
                     print(image_block.shape, mask_block.shape)
                     raise f"{image_block.shape}/{mask_block.shape}"
             else:
@@ -324,7 +311,8 @@ def _image_deal(result, val_images, label_map):
         for index, split_block in enumerate(split_four(image.shape[:2])):
             _, [y, y_stop], [x, x_stop] = split_block
             images, masks, weight_maps = split_to_256(
-                image[y:y_stop, x:x_stop, ...], mask[y:y_stop, x:x_stop], label)
+                image[y:y_stop, x:x_stop, ...],
+                mask[y:y_stop, x:x_stop], label)
             masks = [mask_instance_to_semantic(
                 mask, label, label_map) for mask in masks]
             if index in split_idx:
@@ -358,8 +346,14 @@ def form_datasets(results, val_images, label_map):
     func = partial(_image_deal, val_images=val_images, label_map=label_map)
     CPU_NUM = multiprocessing.cpu_count()
     with multiprocessing.Pool(CPU_NUM) as pool:
-        dataset_results = list(tqdm(pool.imap(func, results),
-                                    desc="Datasets", position=0, total=len(results)))
+        dataset_results = list(
+            tqdm(
+                pool.imap(
+                    func,
+                    results),
+                desc="Datasets",
+                position=0,
+                total=len(results)))
     for dataset_result in dataset_results:
         for i, idx in enumerate(dataset_result['idx']):
             if "V" in idx:
@@ -392,15 +386,27 @@ def dataset_file_init(path="lithofaces.h5",
                       dtype=np.dtype('uint8')):
     with h5py.File(path, "w") as file:
         for dataset_name, dataset in datasets.items():
-            file.create_dataset(f"{dataset_name}/images", shape=tuple([len(dataset['images'])])+images_shape,
-                                dtype=dtype, compression="gzip", compression_opts=4, chunks=True)
-            file.create_dataset(f"{dataset_name}/masks", shape=tuple([len(dataset['masks'])])+masks_shape,
-                                dtype=dtype, compression="gzip", compression_opts=4, chunks=True)
-            file.create_dataset(f"{dataset_name}/weight_maps", shape=tuple([len(dataset['weight_maps'])])+masks_shape,
-                                dtype=np.float, compression="gzip", compression_opts=4, chunks=True)
-            #idxes = [s.encode('ascii') for s in dataset['idx']]
-            file.create_dataset(f"{dataset_name}/idx", shape=(len(dataset['idx']),),
-                                dtype='S10', compression="gzip", compression_opts=4, chunks=True)
+            file.create_dataset(f"{dataset_name}/images",
+                                shape=tuple([len(dataset['images'])]) +
+                                images_shape, dtype=dtype, compression="gzip",
+                                compression_opts=4, chunks=True)
+            file.create_dataset(f"{dataset_name}/masks",
+                                shape=tuple([len(dataset['masks'])]) +
+                                masks_shape, dtype=dtype, compression="gzip",
+                                compression_opts=4, chunks=True)
+            file.create_dataset(
+                f"{dataset_name}/weight_maps",
+                shape=tuple([len(dataset['weight_maps'])]) + masks_shape,
+                dtype=np.float, compression="gzip", compression_opts=4,
+                chunks=True)
+            # idxes = [s.encode('ascii') for s in dataset['idx']]
+            file.create_dataset(f"{dataset_name}/idx",
+                                shape=(len(dataset['idx']),
+                                       ),
+                                dtype='S10',
+                                compression="gzip",
+                                compression_opts=4,
+                                chunks=True)
 
 
 def dataset_to_h5(datasets, dataset_path="lithofaces.h5"):
@@ -415,25 +421,27 @@ def dataset_to_h5(datasets, dataset_path="lithofaces.h5"):
             assert len(dataset['masks']) == dataset_len
             assert len(dataset['weight_maps']) == dataset_len
             assert len(dataset['idx']) == dataset_len
-            file[f"{dataset_name}/images"][:] = np.stack(dataset["images"])
-            #_masks = np.stack(masks)
-            file[f"{dataset_name}/masks"][:] = np.stack(dataset["masks"])
-            file[f"{dataset_name}/weight_maps"][:
-                                                ] = np.stack(dataset["weight_maps"])
-            file[f"{dataset_name}/idx"][:] = [s.encode('ascii')
-                                              for s in dataset['idx']]
-#translations={'A矿': 'Alite', 'B矿': 'Blite', 'C3A': 'C3A', '游离钙': 'fCaO', '孔洞': 'Pore'}
-#select_classes=['Alite', 'Blite', 'C3A', 'Pore']
-#image_ranges = list(range(31))+[38,39]
-#input_path = '/kaggle/input/lithofaces'
-#annotations = "/kaggle/working/data/annotations.xml"
+            images = np.stack(dataset["images"])
+            masks = np.stack(dataset["masks"])
+            weight_maps = np.stack(dataset["weight_maps"])
+            idxes = [s.encode('ascii') for s in dataset['idx']]
+            file[f"{dataset_name}/images"][:] = images
+            # _masks = np.stack(masks)
+            file[f"{dataset_name}/masks"][:] = masks
+            file[f"{dataset_name}/weight_maps"][:] = weight_maps
+            file[f"{dataset_name}/idx"][:] = idxes
 
 
-def process_original(annotations, translations, label_map, image_ranges, input_path):
+def process_original(
+        annotations,
+        translations,
+        label_map,
+        image_ranges,
+        input_path):
     tree = ET.parse(annotations)
     root = tree.getroot()
     images = []
-    for image_ in root.findall(f".//image"):
+    for image_ in root.findall(".//image"):
         if int(image_.attrib['id']) in image_ranges:
             images.append(image_)
     func = partial(process_original_dataset, input_path=input_path,
@@ -452,15 +460,15 @@ def class_weight(select_classes, results, label_map):
     for result in results:
         image_id, image, mask, label = result
         mask_class = mask_instance_to_semantic(mask, label, label_map)
-        classes = np.unique(mask)
+        # classes = np.unique(mask)
         for label_name, label_value in label_map.items():
             class_weight[label_name] += np.sum(mask_class == label_value)
         pixels += np.product(mask.shape)
     for label, value in class_weight.items():
-        class_weight[label] = pixels/value
+        class_weight[label] = pixels / value
     max_weight = max(class_weight.values())
     for label, value in class_weight.items():
-        class_weight[label] = value/max_weight
+        class_weight[label] = value / max_weight
     return class_weight
 
 
@@ -468,9 +476,10 @@ if __name__ == "__main__":
     translations = {'A矿': 'Alite', 'B矿': 'Blite',
                     'C3A': 'C3A', '游离钙': 'fCaO', '孔洞': 'Pore'}
     select_classes = ['Alite', 'Blite', 'C3A', 'Pore', 'edges']
-    image_ranges = list(range(31))+[38, 39, 94, 121, 138]
+    image_ranges = list(range(31)) + [38, 39, 94, 121, 138]
 
-    input_path = '/home/lao/Notebook/Research/Clinker Lithofacies Automation/data/segmentation/images'
+    input_path = '/home/lao/Notebook/Research/' + \
+        'Clinker Lithofacies Automation/data/segmentation/images'
     annotations = "/home/lao/Data/annotations.xml"
     label_map = {label: i for i, label in enumerate(select_classes, start=1)}
 
@@ -483,7 +492,7 @@ if __name__ == "__main__":
     with open("/home/lao/Data/class_weights.txt", mode="w") as file:
         file.write(class_weights.__repr__())
     val_images = get_val_images(image_ranges)
-    #val_images = {"3": [0],
+    # val_images = {"3": [0],
     #              "5": [0, 2],
     #              "9": [1],
     #              "20": [3],
