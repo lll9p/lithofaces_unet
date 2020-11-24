@@ -82,7 +82,7 @@ def fix_edge(mask, kernel=kernel):
         mask_ = (mask > 0).astype(np.uint16) - shape_
         mask_pad = np.pad(mask_, 1, mode='reflect')
         for (y, x) in np.argwhere(shape_edge):
-            if mask_pad[y:y + 3, x:x + 3].sum() != 0:
+            if mask_pad[y - 1:y + 2, x - 1:x + 2].sum() != 0:
                 shape_[y, x] = 0
                 touched[y, x] = 1
         shape_ *= shape_id
@@ -244,12 +244,14 @@ def split_to_256(image, mask, label):
             mask_new = mask
         else:
             image_new = cv2.resize(image, (new_shape[1], new_shape[0]))
-            mask_resized = cv2.resize(
+            mask_new = cv2.resize(
                 mask, (new_shape[1], new_shape[0]), cv2.INTER_NEAREST)
-            edges = mask_resized == label['edges'][0]
-            mask_resized[edges] = 0
-            mask_new, touched = fix_edge(mask_resized)
-            mask_new[edges] = label['edges'][0]
+            # mask_resized = cv2.resize(
+            # mask, (new_shape[1], new_shape[0]), cv2.INTER_NEAREST)
+            # edges = mask_resized == label['edges'][0]
+            # mask_resized[edges] = 0
+            # mask_new, touched = fix_edge(mask_resized)
+            # mask_new[edges] = label['edges'][0]
             # mask_new[touched.astype(bool)] = label['edges'][0]
         blocks = list(split(new_shape, 256))
         for block in blocks:
