@@ -256,6 +256,7 @@ def split_to_256(image, mask, label):
                     (new_shape[1],
                      new_shape[0]),
                     cv2.INTER_NEAREST)
+                shape_tmp_ = (shape_tmp_ > 0) * 1
                 mask_new_tmp[shape_tmp] = shape_tmp_ * mask_new_i
             edges_tmp = mask_new_tmp == label['edges'][0]
             edges = morphology.binary_dilation(
