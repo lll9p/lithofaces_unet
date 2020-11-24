@@ -249,6 +249,7 @@ def split_to_256(image, mask, label):
             mask_new_unique = np.unique(mask_new)
             mask_new_tmp = np.zeros(
                 (new_shape[0], new_shape[1]), dtype=np.uint16)
+            # 分离进行缩放，并避免出现边界出现不同数值的bug
             for mask_new_i in mask_new_unique:
                 shape_tmp = mask_new == mask_new_i
                 shape_tmp_ = cv2.resize(
