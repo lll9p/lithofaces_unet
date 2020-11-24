@@ -246,18 +246,22 @@ def split_to_256(image, mask, label):
             image_new = cv2.resize(image, (new_shape[1], new_shape[0]))
             # 边界加强
             mask_new = mask.copy()
-            edges = mask_new == label['edges'][0]
-            mask_new[edges] = 0
-            mask_new = cv2.resize(
-                mask, (new_shape[1], new_shape[0]), cv2.INTER_NEAREST)
-            edges_new = cv2.resize(
-                edges.astype(np.uint16),
-                (new_shape[1],
-                 new_shape[0]),
-                cv2.INTER_NEAREST)
-            edges = morphology.dilation(
-                edges_new, morphology.square(2)) > 0
-            mask_new[edges] = label['edges'][0]
+            mask_new_unique = np.unique(mask_new)
+            mask_new_tmp = np.zeros(
+                (new_shape[0], new_shape[1]), dtype=np.uint16)
+            for mask_new_i in mask_new_unique:
+                shape_tmp = mask_new == mask_new_i
+                shape_tmp_ = cv2.resize(
+                    shape_tmp.astype(np.uint16),
+                    (new_shape[1],
+                     new_shape[0]),
+                    cv2.INTER_NEAREST)
+                mask_new_tmp[shape_tmp] = shape_tmp_ * mask_new_i
+            edges_tmp = mask_new_tmp == label['edges'][0]
+            edges = morphology.binary_dilation(
+                edges_tmp, morphology.square(2)) > 0
+            mask_new_tmp[edges] = label['edges'][0]
+            mask_new = mask_new_tmp
             # mask_resized = cv2.resize(
             # mask, (new_shape[1], new_shape[0]), cv2.INTER_NEAREST)
             # edges = mask_resized == label['edges'][0]
