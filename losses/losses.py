@@ -220,7 +220,7 @@ def _create_loss(name, config, weight):
     if name == 'DiceLoss':
         return DiceLoss(activation=config.dice_activation, weight=weight)
     elif name == 'BCEDiceLoss':
-        return BCEDiceLoss(config.alpha, config.beta, config.dice_activation)
+        return BCEDiceLoss(config.alpha, config.beta, config.dice_activation,config)
     elif name == 'PixelWiseCrossEntropyLoss':
         return PixelWiseCrossEntropyLoss(config, class_weights=weight)
     elif name == 'PixelWiseDiceLoss':
