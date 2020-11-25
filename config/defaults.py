@@ -11,6 +11,7 @@ defaults = dict(
     input_channels=3,
     input_height=224,
     input_wide=224,
+    device='cuda',
     labels=[
         'Alite',
         'Blite',
@@ -19,6 +20,8 @@ defaults = dict(
         'edges'],
     learning_rate=0.001,
     loss='BCEDiceLoss',
+    alpha=0.5,
+    beta=1.0,
     dice_activation='sigmoid',
     weight={
         'Alite': 0.00839185494289761,
