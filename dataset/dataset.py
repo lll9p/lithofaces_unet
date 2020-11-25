@@ -92,9 +92,8 @@ class Dataset(data.Dataset):
         image = self.composed(image)
         mask = np.array(mask)
         image = normalize(image)
-        mask = mask.astype(np.float32)
         # weight_map = torch.from_numpy(weight_map.copy()).float()
-        return image, mask, weight_map.copy()
+        return image, mask.astype(np.int64), weight_map.copy()
 
     def __getitem__(self, index):
         image, mask, weight_map, idx = get_data(

@@ -26,7 +26,7 @@ class DiceLoss(nn.Module):
 class BCEDiceLoss(nn.Module):
     """Linear combination of BCE and Dice losses"""
 
-    def __init__(self, alpha, beta, activation,config):
+    def __init__(self, alpha, beta, activation, config):
         super(BCEDiceLoss, self).__init__()
         self.alpha = alpha
         self.bce = nn.BCEWithLogitsLoss()
@@ -34,7 +34,6 @@ class BCEDiceLoss(nn.Module):
         self.dice = DiceLoss(activation)
         self.ignore_labels = config.ignore_labels
         self.labels = config.labels
-
 
     def forward(self, input, target, *args):
         target = expand_as_one_hot(
@@ -88,7 +87,7 @@ class PixelWiseCrossEntropyLoss(nn.Module):
 
 
 class PixelWiseDiceLoss(nn.Module):
-    def __init__(self, activation='sigmoid', weight=None):
+    def __init__(self, activation='sigmoid', weight=None,config=None):
         super(PixelWiseDiceLoss, self).__init__()
         if activation == 'sigmoid':
             self.activation = nn.Sigmoid()
@@ -97,10 +96,16 @@ class PixelWiseDiceLoss(nn.Module):
         else:
             self.activation = lambda x: x
         self.weight = weight
+        self.labels = config.labels
+        self.ignore_labels = config.ignore_labels
 
     def forward(self, input, target, weights=None):
-        input = input * weights
+        # expand weights
+        weights = weights.unsqueeze(1)
+        weights = weights.expand_as(input)
+        input = input * weights.to(input.device)
         input = self.activation(input)
+        target = expand_as_one_hot(target,self.labels,self.ignore_labels)
         per_channel_dice = compute_per_channel_dice(
             input, target, weight=self.weight)
         return 1. - torch.mean(per_channel_dice)
@@ -204,7 +209,7 @@ def get_loss_criterion(config):
         weight_ = torch.Tensor(weight_)
         weight_ /= weight_.max()
         # weight need ignore
-        weight = torch.tensor(weight_).to(config.device)
+        weight = weight_.to("cuda")
     loss = _create_loss(name, config, weight)
     return loss
 
@@ -220,11 +225,15 @@ def _create_loss(name, config, weight):
     if name == 'DiceLoss':
         return DiceLoss(activation=config.dice_activation, weight=weight)
     elif name == 'BCEDiceLoss':
-        return BCEDiceLoss(config.alpha, config.beta, config.dice_activation,config)
+        return BCEDiceLoss(
+            config.alpha,
+            config.beta,
+            config.dice_activation,
+            config)
     elif name == 'PixelWiseCrossEntropyLoss':
         return PixelWiseCrossEntropyLoss(config, class_weights=weight)
     elif name == 'PixelWiseDiceLoss':
-        return PixelWiseDiceLoss(config.dice_activation, weight=weight)
+        return PixelWiseDiceLoss(config.dice_activation, weight=weight,config=config)
     else:
         raise RuntimeError(
             f"Unsupported loss function: '{name}'. Supported losses: {SUPPORTED_LOSSES}")
