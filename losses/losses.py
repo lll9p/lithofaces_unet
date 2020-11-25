@@ -26,14 +26,19 @@ class DiceLoss(nn.Module):
 class BCEDiceLoss(nn.Module):
     """Linear combination of BCE and Dice losses"""
 
-    def __init__(self, alpha, beta, activation):
+    def __init__(self, alpha, beta, activation,config):
         super(BCEDiceLoss, self).__init__()
         self.alpha = alpha
         self.bce = nn.BCEWithLogitsLoss()
         self.beta = beta
         self.dice = DiceLoss(activation)
+        self.ignore_labels = config.ignore_labels
+        self.labels = config.labels
+
 
     def forward(self, input, target, *args):
+        target = expand_as_one_hot(
+            target, labels=self.labels, ignore_labels=self.ignore_labels)
         return self.alpha * self.bce(input,
                                      target) + self.beta * self.dice(input,
                                                                      target)
@@ -215,7 +220,7 @@ def _create_loss(name, config, weight):
     if name == 'DiceLoss':
         return DiceLoss(activation=config.dice_activation, weight=weight)
     elif name == 'BCEDiceLoss':
-        return BCEDiceLoss(config.alpha, config.beta, config.activation)
+        return BCEDiceLoss(config.alpha, config.beta, config.dice_activation)
     elif name == 'PixelWiseCrossEntropyLoss':
         return PixelWiseCrossEntropyLoss(config, class_weights=weight)
     elif name == 'PixelWiseDiceLoss':
