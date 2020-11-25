@@ -1,4 +1,5 @@
 import os
+import pathlib
 from collections import OrderedDict
 
 import cv2
@@ -9,12 +10,11 @@ import yaml
 from sklearn.model_selection import train_test_split
 from tqdm.autonotebook import tqdm
 
-import losses
-from models import get_model
-from dataset import Dataset, get_datasets
-from utils import AverageMeter, iou_score, get_optimizer, get_scheduler
 from config import Config
-import pathlib
+from dataset import Dataset, get_datasets
+from losses import get_loss_criterion
+from models import get_model
+from utils import AverageMeter, get_optimizer, get_scheduler, iou_score
 
 
 class Model():
@@ -33,7 +33,7 @@ class Model():
         print('-' * 20)
         config.save(f'networks/{config.name}/config.yml')
         # Defile loss function(criterion)
-        self.criterion = losses.__dict__[config.loss]().cuda()
+        self.criterion = get_loss_criterion(config).cuda()
 
         cudnn.benchmark = True
 
@@ -91,18 +91,12 @@ class Model():
                 outputs = self.model(input)
                 loss = 0
                 for output in outputs:
-                    if self.config.loss == "MSSSIM":
-                        loss -= self.criterion(output, target)
-                    else:
-                        loss += self.criterion(output, target)
+                    loss += self.criterion(output, target, weight_map)
                 loss /= len(outputs)
                 iou = iou_score(outputs[-1], target)
             else:
                 output = self.model(input)
-                if self.config.loss == "MSSSIM":
-                    loss = -self.criterion(output, target)
-                else:
-                    loss = self.criterion(output, target)
+                loss = self.criterion(output, target, weight_map)
                 # print(loss)
                 iou = iou_score(output, target)
 
@@ -249,10 +243,10 @@ class Model():
         with open(f'networks/{config.name}/config.yml', 'r') as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
 
-        print('-'*20)
+        print('-' * 20)
         for key in config.__dict__:
             print('%s: %s' % (key, str(config.__dict__[key])))
-        print('-'*20)
+        print('-' * 20)
 
         cudnn.benchmark = True
 
@@ -274,7 +268,8 @@ class Model():
             os.makedirs(os.path.join(
                 'outputs', config.name, str(c)), exist_ok=True)
         with torch.no_grad():
-            for input, target, weight_map, meta in tqdm(self.val_loader, total=len(self.val_loader)):
+            for input, target, weight_map, meta in tqdm(
+                    self.val_loader, total=len(self.val_loader)):
                 input = input.cuda()
                 target = target.cuda()
 
@@ -291,8 +286,11 @@ class Model():
 
                 for i in range(len(output)):
                     for c in range(config.num_classes):
-                        cv2.imwrite(os.path.join('outputs', config.name, str(c), meta[i] + '.jpg'),
-                                    (output[i, c] * 255).astype('uint8'))
+                        cv2.imwrite(
+                            os.path.join(
+                                'outputs', config.name, str(c),
+                                meta[i] + '.jpg'),
+                            (output[i, c] * 255).astype('uint8'))
 
         print('IoU: %.4f' % avg_meter.avg)
 
