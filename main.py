@@ -297,11 +297,11 @@ class Model():
         torch.cuda.empty_cache()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" and "KAGGLE_CONTAINER_NAME" not in os.environ:
     config = Config()
     config.path = '/home/lao/Data/lithofaces.h5'
     config.batch_size = 20
-    config.epochs = 200
+    config.epochs = 10
     model = Model(config=config)
     model.setup_dataset(config.path)
     model.train()
