@@ -11,7 +11,7 @@ from sklearn.model_selection import train_test_split
 from tqdm.autonotebook import tqdm
 
 from config import Config
-from dataset import Dataset, get_datasets
+from dataset import Dataset
 from losses import get_loss_criterion
 from models import get_model
 from utils import AverageMeter, get_optimizer, get_scheduler, iou_score
@@ -48,13 +48,14 @@ class Model:
     def setup_dataset(self, dataset_path):
         # Data loading code
         config = self.config
-        datasets = get_datasets(file_path=dataset_path, modes=["train", "val"])
-        train_dataset = Dataset(datasets, root=self.root, mode="train", config=config)
-        val_dataset = Dataset(datasets, root=self.root, mode="val", config=config)
+        #datasets = get_datasets(file_path=dataset_path, modes=["train", "val"])
+        train_dataset = Dataset( root=self.root, mode="train", config=config)
+        val_dataset = Dataset( root=self.root, mode="val", config=config)
 
         self.train_loader = torch.utils.data.DataLoader(
             train_dataset,
             batch_size=config.batch_size,
+            pin_memory=True, 
             shuffle=True,
             num_workers=config.num_workers,
             drop_last=True,
@@ -62,6 +63,7 @@ class Model:
         self.val_loader = torch.utils.data.DataLoader(
             val_dataset,
             batch_size=config.batch_size,
+            pin_memory=True, 
             shuffle=False,
             num_workers=config.num_workers,
             drop_last=False,
@@ -77,8 +79,8 @@ class Model:
         # pbar = tqdm(total=len(train_loader), position=1, leave=True)
         pbar.total = len(train_loader)
         for input, target, weight_map, _ in train_loader:
-            input = input.cuda()
-            target = target.cuda()
+            input = input.cuda(non_blocking=True)
+            target = target.cuda(non_blocking=True)
 
             # compute output
             # output shape is[batch_size, nb_classes, height, width]
@@ -191,7 +193,7 @@ class Model:
                     f"Epoch [{epoch}/{config.epochs}]"
                     + f'Loss {log["loss"][-1]:.4f} - '
                     + f'IOU {log["iou"][-1]:.4f} - '
-                    + f'var_Loss {log["val_loss"][-1]:.4f} - '
+                    + f'val_Loss {log["val_loss"][-1]:.4f} - '
                     + f'val_IOU {log["val_iou"][-1]:.4f}'
                 )
 
@@ -296,9 +298,10 @@ class Model:
 if __name__ == "__main__" and "KAGGLE_CONTAINER_NAME" not in os.environ:
     config = Config()
     config.path = "/home/lao/Data/lithofaces.h5"
-    config.loss = "PixelWiseDiceLoss"
-    config.batch_size = 24
-    config.epochs = 200
+    config.loss = "BCEDiceLoss"
+    config.batch_size = 20
+    config.num_workers = 8
+    config.epochs = 100
     model = Model(config=config)
     model.setup_dataset(config.path)
     model.train()

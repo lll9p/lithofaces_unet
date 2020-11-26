@@ -400,7 +400,7 @@ def dataset_file_init(path="lithofaces.h5",
                       images_shape=None,
                       masks_shape=None,
                       dtype=np.dtype('uint8')):
-    with h5py.File(path, "w") as file:
+    with h5py.File(path, "w", libver='latest') as file:
         for dataset_name, dataset in datasets.items():
             file.create_dataset(f"{dataset_name}/images",
                                 shape=tuple([len(dataset['images'])]) +
@@ -431,7 +431,7 @@ def dataset_to_h5(datasets, dataset_path="lithofaces.h5"):
                       images_shape=(256, 256, 3),
                       masks_shape=(256, 256),
                       dtype=np.dtype('uint8'))
-    with h5py.File(dataset_path, "a") as file:
+    with h5py.File(dataset_path, "a", libver='latest') as file:
         for dataset_name, dataset in datasets.items():
             dataset_len = len(dataset["images"])
             assert len(dataset['masks']) == dataset_len

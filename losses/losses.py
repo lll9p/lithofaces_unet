@@ -61,7 +61,7 @@ class PixelWiseCrossEntropyLoss(nn.Module):
         target = expand_as_one_hot(
             target, labels=self.labels, ignore_labels=self.ignore_labels)
         # expand weights
-        weights = weights.unsqueeze(0)
+        weights = weights.unsqueeze(1)  # 0->1
         weights = weights.expand_as(input)
 
         # create default class_weights if None
@@ -78,7 +78,8 @@ class PixelWiseCrossEntropyLoss(nn.Module):
         class_weights = class_weights.view(1, -1, 1, 1)
 
         # add weights tensor by class weights
-        weights = class_weights + weights
+        weights = class_weights + weights.to(input.device)
+        weights = nn.Sigmoid()(weights)
 
         # compute the losses
         result = -weights * target * log_probabilities
@@ -87,7 +88,7 @@ class PixelWiseCrossEntropyLoss(nn.Module):
 
 
 class PixelWiseDiceLoss(nn.Module):
-    def __init__(self, activation='sigmoid', weight=None,config=None):
+    def __init__(self, activation='sigmoid', weight=None, config=None):
         super(PixelWiseDiceLoss, self).__init__()
         if activation == 'sigmoid':
             self.activation = nn.Sigmoid()
@@ -101,11 +102,11 @@ class PixelWiseDiceLoss(nn.Module):
 
     def forward(self, input, target, weights=None):
         # expand weights
-        weights = weights.unsqueeze(1)
+        weights = weights.unsqueeze(1)  # 0 -> 1
         weights = weights.expand_as(input)
         input = input * weights.to(input.device)
         input = self.activation(input)
-        target = expand_as_one_hot(target,self.labels,self.ignore_labels)
+        target = expand_as_one_hot(target, self.labels, self.ignore_labels)
         per_channel_dice = compute_per_channel_dice(
             input, target, weight=self.weight)
         return 1. - torch.mean(per_channel_dice)
@@ -233,7 +234,10 @@ def _create_loss(name, config, weight):
     elif name == 'PixelWiseCrossEntropyLoss':
         return PixelWiseCrossEntropyLoss(config, class_weights=weight)
     elif name == 'PixelWiseDiceLoss':
-        return PixelWiseDiceLoss(config.dice_activation, weight=weight,config=config)
+        return PixelWiseDiceLoss(
+            config.dice_activation,
+            weight=weight,
+            config=config)
     else:
         raise RuntimeError(
             f"Unsupported loss function: '{name}'. Supported losses: {SUPPORTED_LOSSES}")
