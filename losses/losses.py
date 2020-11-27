@@ -16,9 +16,10 @@ class DiceLoss(nn.Module):
             self.activation = lambda x: x
         self.weight = weight
 
-    def forward(self, input, target,*args):
+    def forward(self, input, target, *args):
         input = self.activation(input)
-        per_channel_dice = compute_per_channel_dice(input, target, weight=self.weight)
+        per_channel_dice = compute_per_channel_dice(
+            input, target, weight=self.weight)
         return 1.0 - torch.mean(per_channel_dice)
 
 
@@ -65,7 +66,13 @@ class PixelWiseDiceLoss(nn.Module):
         weights = weights.unsqueeze(1)  # 0->1
         weights = weights.expand_as(input).to(input.device)
         input_wmse = self.activation(input)
-        wmse = (self.mse(input_wmse, target) * weights / target.shape[1]/target.shape[0]).mean()
+        wmse = (
+            self.mse(
+                input_wmse,
+                target) *
+            weights /
+            target.shape[1] /
+            target.shape[0]).mean()
         return self.dice(input, target) + wmse
 
 
@@ -173,7 +180,8 @@ def expand_as_one_hot(input, labels, ignore_labels=None):
     input = input.clone()
     num_classes = len(labels) - len(ignore_labels)
     labels_index = list(range(1, len(labels) + 1))
-    ignore_labels_index = sorted(map(lambda i: labels.index(i) + 1, ignore_labels))
+    ignore_labels_index = sorted(
+        map(lambda i: labels.index(i) + 1, ignore_labels))
     for i in ignore_labels_index:
         input[input == i] = 0
         labels_index.pop(labels_index.index(i))
@@ -228,13 +236,19 @@ def _create_loss(name, config, weight):
     if name == "DiceLoss":
         return DiceLoss(activation=config.dice_activation, weight=weight)
     elif name == "BCEDiceLoss":
-        return BCEDiceLoss(config.alpha, config.beta, config.dice_activation, config)
+        return BCEDiceLoss(
+            config.alpha,
+            config.beta,
+            config.dice_activation,
+            config)
     elif name == "PixelWiseCrossEntropyLoss":
         return PixelWiseCrossEntropyLoss(config, class_weights=weight)
     elif name == "PixelWiseDiceLoss":
-        return PixelWiseDiceLoss(config.dice_activation, weight=weight, config=config)
+        return PixelWiseDiceLoss(
+            config.dice_activation,
+            weight=weight,
+            config=config)
     else:
         raise RuntimeError(
             f"Unsupported loss function: '{name}'. Supported losses: {SUPPORTED_LOSSES}"
         )
-

@@ -24,7 +24,8 @@ class Model:
         self.root = pathlib.Path(config.path)
         if config.name is None:
             name = f"{config.dataset}_{config.model}"
-            config.name = name + ("_wDS" if config.deep_supervision else "_woDS")
+            config.name = name + ("_wDS"
+                                  if config.deep_supervision else "_woDS")
         os.makedirs(f"networks/{config.name}", exist_ok=True)
         print("-" * 20)
         for key in config.__dict__:
@@ -101,7 +102,11 @@ class Model:
                 output = self.model(input)
                 loss = self.criterion(output, target, weight_map)
                 # print(loss)
-                iou = iou_score(output, target, config.labels, config.ignore_labels)
+                iou = iou_score(
+                    output,
+                    target,
+                    config.labels,
+                    config.ignore_labels)
 
             # compute gradient and do optimizing step
             # print(output.shape)
@@ -114,8 +119,8 @@ class Model:
             avg_meters["iou"].update(iou, input.size(0))
 
             postfix = OrderedDict(
-                [("loss", avg_meters["loss"].avg), ("iou", avg_meters["iou"].avg),]
-            )
+                [("loss", avg_meters["loss"].avg),
+                 ("iou", avg_meters["iou"].avg), ])
             pbar.set_postfix(postfix)
             pbar.update(1)
         # pbar.close()
@@ -151,14 +156,15 @@ class Model:
                 else:
                     output = self.model(input)
                     loss = self.criterion(output, target, weight_map)
-                    iou = iou_score(output, target, config.labels, config.ignore_labels)
+                    iou = iou_score(
+                        output, target, config.labels, config.ignore_labels)
 
                 avg_meters["loss"].update(loss.item(), input.size(0))
                 avg_meters["iou"].update(iou, input.size(0))
 
                 postfix = OrderedDict(
-                    [("loss", avg_meters["loss"].avg), ("iou", avg_meters["iou"].avg),]
-                )
+                    [("loss", avg_meters["loss"].avg),
+                     ("iou", avg_meters["iou"].avg), ])
                 pbar.set_postfix(postfix)
                 pbar.update(1)
             # pbar.close()
@@ -182,7 +188,11 @@ class Model:
 
         best_iou = 0
         trigger = 0
-        pbar = tqdm(desc="Trainning", total=config.epochs, position=0, leave=True)
+        pbar = tqdm(
+            desc="Trainning",
+            total=config.epochs,
+            position=0,
+            leave=True)
         pbar_train = tqdm(desc="Train epoch", position=1, leave=True)
         pbar_val = tqdm(desc="Validate epoch", position=1, leave=True)
         for epoch in range(config.epochs):
@@ -223,14 +233,16 @@ class Model:
             log["val_loss"].append(val_log["loss"])
             log["val_iou"].append(val_log["iou"])
 
-            pd.DataFrame(log).to_csv(f"networks/{config.name}/log.csv", index=False)
+            pd.DataFrame(log).to_csv(
+                f"networks/{config.name}/log.csv", index=False)
 
             trigger += 1
 
             if val_log["iou"] > best_iou:
                 torch.save(
-                    self.model.state_dict(), "networks/%s/model.pth" % config.name
-                )
+                    self.model.state_dict(),
+                    "networks/%s/model.pth" %
+                    config.name)
                 best_iou = val_log["iou"]
                 # pbar.display("=> saved best model")
                 trigger = 0
@@ -271,7 +283,12 @@ class Model:
         avg_meter = AverageMeter()
 
         for c in range(config.num_classes):
-            os.makedirs(os.path.join("outputs", config.name, str(c)), exist_ok=True)
+            os.makedirs(
+                os.path.join(
+                    "outputs",
+                    config.name,
+                    str(c)),
+                exist_ok=True)
         with torch.no_grad():
             for input, target, weight_map, meta in tqdm(
                 self.val_loader, total=len(self.val_loader)

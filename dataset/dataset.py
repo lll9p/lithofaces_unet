@@ -1,9 +1,11 @@
+import os
 import random
 
 import h5py
 import numpy as np
 from torch.utils import data
 from torchvision import transforms
+
 
 def semantic2onehot(mask, labels, ignore_labels):
     def labels2num(labels, ignore_labels):
@@ -68,10 +70,11 @@ class Dataset(data.Dataset):
         image = transforms.functional.to_pil_image(image)
         mask = transforms.functional.to_pil_image(mask)
         # RandomCrop
-        i, j, h, w = transforms.RandomCrop.get_params(image, output_size=(224, 224))
+        i, j, h, w = transforms.RandomCrop.get_params(
+            image, output_size=(224, 224))
         image = transforms.functional.crop(image, i, j, h, w)
         mask = transforms.functional.crop(mask, i, j, h, w)
-        weight_map = weight_map[..., i : i + h, j : j + w]
+        weight_map = weight_map[..., i: i + h, j: j + w]
         if random.random() > 0.5:
             image = transforms.functional.hflip(image)
             mask = transforms.functional.hflip(mask)
@@ -93,7 +96,24 @@ class Dataset(data.Dataset):
 
     def __getitem__(self, index):
         if self.dataset is None:
-            self.dataset = h5py.File(self.config.path, "r", libver="latest", swmr=True)[self.mode]
+            if "KAGGLE_CONTAINER_NAME" in os.environ:
+                h5file = h5py.File(
+                    self.config.path,
+                    "r",
+                    libver="latest",
+                    swmr=True)[
+                    self.mode]
+                self.dataset["images"] = h5file["images"][()]
+                self.dataset["masks"] = h5file["masks"][()]
+                self.dataset["weight_maps"] = h5file["weight_maps"][()]
+                self.dataset["idx"] = h5file["idx"][()]
+            else:
+                self.dataset = h5py.File(
+                    self.config.path,
+                    "r",
+                    libver="latest",
+                    swmr=True)[
+                    self.mode]
         image, mask, weight_map, idx = (
             self.dataset["images"][index],
             self.dataset["masks"][index],
