@@ -5,9 +5,9 @@ import torch.nn.functional as F
 # COPY FROM https://github.com/wolny/pytorch-3dunet
 
 
-class DiceLoss(nn.Module):
+class _DiceLoss(nn.Module):
     def __init__(self, activation="sigmoid", weight=None):
-        super(DiceLoss, self).__init__()
+        super(_DiceLoss, self).__init__()
         if activation == "sigmoid":
             self.activation = nn.Sigmoid()
         elif activation == "softmax":
@@ -22,6 +22,23 @@ class DiceLoss(nn.Module):
             input, target, weight=self.weight)
         return 1.0 - torch.mean(per_channel_dice)
 
+class DiceLoss(nn.Module):
+    """Linear combination of BCE and Dice losses"""
+
+    def __init__(self,activation, config):
+        super(DiceLoss, self).__init__()
+        self.dice = _DiceLoss(activation)
+        self.ignore_labels = config.ignore_labels
+        self.labels = config.labels
+        self.weight = config.weight
+
+    def forward(self, input, target, *args):
+        target = expand_as_one_hot(
+            target, labels=self.labels, ignore_labels=self.ignore_labels
+        )
+        return self.dice(
+            input, target
+        )
 
 class BCEDiceLoss(nn.Module):
     """Linear combination of BCE and Dice losses"""
@@ -31,7 +48,7 @@ class BCEDiceLoss(nn.Module):
         self.alpha = alpha
         self.bce = nn.BCEWithLogitsLoss()
         self.beta = beta
-        self.dice = DiceLoss(activation)
+        self.dice = _DiceLoss(activation)
         self.ignore_labels = config.ignore_labels
         self.labels = config.labels
         self.weight = config.weight
@@ -57,7 +74,7 @@ class PixelWiseDiceLoss(nn.Module):
         self.weight = weight
         self.labels = config.labels
         self.ignore_labels = config.ignore_labels
-        self.dice = DiceLoss(activation, weight=self.weight)
+        self.dice = _DiceLoss(activation, weight=self.weight)
         self.mse = nn.MSELoss(reduction="none")
 
     def forward(self, input, target, weights=None):
@@ -234,7 +251,7 @@ SUPPORTED_LOSSES = [
 
 def _create_loss(name, config, weight):
     if name == "DiceLoss":
-        return DiceLoss(activation=config.dice_activation, weight=weight)
+        return DiceLoss(activation=config.dice_activation,config=config)
     elif name == "BCEDiceLoss":
         return BCEDiceLoss(
             config.alpha,
