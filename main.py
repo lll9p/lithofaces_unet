@@ -15,7 +15,11 @@ from dataset import Dataset
 from losses import get_loss_criterion
 from models import get_model
 from utils import AverageMeter, get_optimizer, get_scheduler, iou_score
-
+def normPRED(d):
+    ma = torch.max(d)
+    mi = torch.min(d)
+    dn = (d-mi)/(ma-mi)
+    return dn
 
 class Model:
     def __init__(self, config=None, model="UNet_3Plus_DeepSup"):
@@ -89,7 +93,7 @@ class Model:
             # output shape is[batch_size, nb_classes, height, width]
             # (16, 1, 256, 256)
             # https://discuss.pytorch.org/t/weighted-pixelwise-nllloss2d/7766/6
-            if self.config.deep_supervision:
+            if self.config.deep_supervision and self.model!="U2NETP":
                 outputs = self.model(input)
                 loss = 0
                 for output in outputs:
@@ -97,6 +101,19 @@ class Model:
                 loss /= len(outputs)
                 iou = iou_score(
                     outputs[-1], target, config.labels, config.ignore_labels
+                )
+            elif self.model=="U2NETP":
+                outputs = self.model(input)
+                loss = 0
+                for output in outputs:
+                    loss += self.criterion(output, target, weight_map)
+                loss /= len(outputs)
+                # normalization
+                pred = d1[:,0,:,:]
+                pred = normPRED(pred)
+                pred.squeeze()
+                iou = iou_score(
+                    pred, target, config.labels, config.ignore_labels
                 )
             else:
                 output = self.model(input)
@@ -144,7 +161,7 @@ class Model:
                 target = target.cuda()
 
                 # compute output
-                if config.deep_supervision:
+                if config.deep_supervision and self.model!="U2NETP":
                     outputs = self.model(input)
                     loss = 0
                     for output in outputs:
@@ -152,6 +169,19 @@ class Model:
                     loss /= len(outputs)
                     iou = iou_score(
                         outputs[-1], target, config.labels, config.ignore_labels
+                    )
+                elif self.model=="U2NETP":
+                    outputs = self.model(input)
+                    loss = 0
+                    for output in outputs:
+                        loss += self.criterion(output, target, weight_map)
+                    loss /= len(outputs)
+                    # normalization
+                    pred = d1[:,0,:,:]
+                    pred = normPRED(pred)
+                    pred.squeeze()
+                    iou = iou_score(
+                        pred, target, config.labels, config.ignore_labels
                     )
                 else:
                     output = self.model(input)
@@ -331,6 +361,7 @@ if __name__ == "__main__":
         config.path = "/home/lao/Data/lithofaces.h5"
         config.batch_size = 20
         config.num_workers = 8
+    config.model="U2NETP"
     config.loss = "BCEDiceLoss"
     config.ignore_labels=["C3A"]
     config.epochs = 100

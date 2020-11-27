@@ -90,7 +90,7 @@ class PixelWiseDiceLoss(nn.Module):
             weights /
             target.shape[1] /
             target.shape[0]).mean()
-        return self.dice(input, target) + wmse
+        return self.dice(input, target) + 10*wmse
 
 
 class PixelWiseCrossEntropyLoss(nn.Module):
