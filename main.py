@@ -42,20 +42,22 @@ class Model:
         self.model = model.cuda()
         params = filter(lambda p: p.requires_grad, self.model.parameters())
         self.config = config
+        self.secondloss = False
+        self.thirdloss = False
         self.optimizer = get_optimizer(config, params)
         self.scheduler = get_scheduler(config, self.optimizer)
 
     def setup_dataset(self, dataset_path):
         # Data loading code
         config = self.config
-        #datasets = get_datasets(file_path=dataset_path, modes=["train", "val"])
-        train_dataset = Dataset( root=self.root, mode="train", config=config)
-        val_dataset = Dataset( root=self.root, mode="val", config=config)
+        # datasets = get_datasets(file_path=dataset_path, modes=["train", "val"])
+        train_dataset = Dataset(root=self.root, mode="train", config=config)
+        val_dataset = Dataset(root=self.root, mode="val", config=config)
 
         self.train_loader = torch.utils.data.DataLoader(
             train_dataset,
             batch_size=config.batch_size,
-            pin_memory=True, 
+            pin_memory=True,
             shuffle=True,
             num_workers=config.num_workers,
             drop_last=True,
@@ -63,7 +65,7 @@ class Model:
         self.val_loader = torch.utils.data.DataLoader(
             val_dataset,
             batch_size=config.batch_size,
-            pin_memory=True, 
+            pin_memory=True,
             shuffle=False,
             num_workers=config.num_workers,
             drop_last=False,
@@ -196,7 +198,14 @@ class Model:
                     + f'val_Loss {log["val_loss"][-1]:.4f} - '
                     + f'val_IOU {log["val_iou"][-1]:.4f}'
                 )
-
+            if epoch > 40 and self.secondloss == False:
+                self.config.loss = "DiceLoss"
+                self.criterion = get_loss_criterion(config).cuda()
+                self.secondloss = True
+            if epoch > 75 and self.thirdloss == False:
+                self.config.loss = "PixelWiseDiceLoss"
+                self.criterion = get_loss_criterion(config).cuda()
+                self.thirdloss = True
             # train for one epoch
             train_log = self.train_epoch(self.train_loader, pbar_train)
             # evaluate on validation set
@@ -295,13 +304,19 @@ class Model:
         torch.cuda.empty_cache()
 
 
-if __name__ == "__main__" and "KAGGLE_CONTAINER_NAME" not in os.environ:
+if __name__ == "__main__":
     config = Config()
-    config.path = "/home/lao/Data/lithofaces.h5"
+    if "KAGGLE_CONTAINER_NAME" in os.environ:
+        config.path = "/kaggle/input/lithofaces-dataset/lithofaces.h5"
+        config.batch_size = 32
+        config.num_workers = 2
+    else:
+        config.path = "/home/lao/Data/lithofaces.h5"
+        config.batch_size = 20
+        config.num_workers = 8
     config.loss = "BCEDiceLoss"
-    config.batch_size = 20
-    config.num_workers = 8
     config.epochs = 100
+    config.weight = None
     model = Model(config=config)
     model.setup_dataset(config.path)
     model.train()

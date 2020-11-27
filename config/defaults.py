@@ -31,7 +31,7 @@ defaults = dict(
         'edges': 0.2619788247175383},
     mask_ext='.png',
     milestones='1,2',
-    min_learning_rate=1e-05,
+    min_learning_rate=1e-08,
     model='NestedUNet',
     momentum=0.9,
     name=None,

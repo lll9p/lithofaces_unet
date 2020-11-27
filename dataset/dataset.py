@@ -30,7 +30,7 @@ class Dataset(data.Dataset):
         self.dataset = None
         with h5py.File(self.config.path, "r") as file:
             self.data_len = len(file[f"{self.mode}/images"])
-        self.composed = transforms.Compose(
+        self.color_composed = transforms.Compose(
             [
                 transforms.RandomApply(
                     [
@@ -85,10 +85,10 @@ class Dataset(data.Dataset):
             image = transforms.functional.rotate(image, 90)
             mask = transforms.functional.rotate(mask, 90)
             weight_map = np.rot90(weight_map)
-        image = self.composed(image)
+        if self.mode == 'train':
+            image = self.color_composed(image)
         mask = np.array(mask)
         image = normalize(image)
-        # weight_map = torch.from_numpy(weight_map.copy()).float()
         return image, mask.astype(np.int64), weight_map.copy()
 
     def __getitem__(self, index):
