@@ -103,6 +103,7 @@ class Dataset(data.Dataset):
                     libver="latest",
                     swmr=True)[
                     self.mode]
+                print("Detect in Kaggle, reading all data to memory.")
                 self.dataset = dict()
                 self.dataset["images"] = h5file["images"][()]
                 self.dataset["masks"] = h5file["masks"][()]
