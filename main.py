@@ -332,8 +332,10 @@ if __name__ == "__main__":
         config.batch_size = 20
         config.num_workers = 8
     config.loss = "BCEDiceLoss"
+    config.ignore_labels=["C3A"]
     config.epochs = 100
     config.weight = None
+    Config.check_classes(config)
     model = Model(config=config)
     model.setup_dataset(config.path)
     model.train()

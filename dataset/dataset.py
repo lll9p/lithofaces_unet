@@ -32,6 +32,19 @@ class Dataset(data.Dataset):
         self.dataset = None
         with h5py.File(self.config.path, "r") as file:
             self.data_len = len(file[f"{self.mode}/images"])
+        if "KAGGLE_CONTAINER_NAME" in os.environ:
+            h5file = h5py.File(
+                self.config.path,
+                "r",
+                libver="latest",
+                swmr=True)[
+                self.mode]
+            print("Detect in Kaggle, reading all data to memory.")
+            self.dataset = dict()
+            self.dataset["images"] = h5file["images"][()]
+            self.dataset["masks"] = h5file["masks"][()]
+            self.dataset["weight_maps"] = h5file["weight_maps"][()]
+            self.dataset["idx"] = h5file["idx"][()]
         self.color_composed = transforms.Compose(
             [
                 transforms.RandomApply(
@@ -96,26 +109,12 @@ class Dataset(data.Dataset):
 
     def __getitem__(self, index):
         if self.dataset is None:
-            if "KAGGLE_CONTAINER_NAME" in os.environ:
-                h5file = h5py.File(
-                    self.config.path,
-                    "r",
-                    libver="latest",
-                    swmr=True)[
-                    self.mode]
-                print("Detect in Kaggle, reading all data to memory.")
-                self.dataset = dict()
-                self.dataset["images"] = h5file["images"][()]
-                self.dataset["masks"] = h5file["masks"][()]
-                self.dataset["weight_maps"] = h5file["weight_maps"][()]
-                self.dataset["idx"] = h5file["idx"][()]
-            else:
-                self.dataset = h5py.File(
-                    self.config.path,
-                    "r",
-                    libver="latest",
-                    swmr=True)[
-                    self.mode]
+            self.dataset = h5py.File(
+                self.config.path,
+                "r",
+                libver="latest",
+                swmr=True)[
+                self.mode]
         image, mask, weight_map, idx = (
             self.dataset["images"][index],
             self.dataset["masks"][index],
