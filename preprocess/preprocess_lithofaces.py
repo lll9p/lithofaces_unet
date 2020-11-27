@@ -530,11 +530,19 @@ if __name__ == "__main__":
     select_classes = ["Alite", "Blite", "C3A", "Pore", "edges"]
     image_ranges = list(range(31)) + [38, 39, 94, 121, 138]
 
-    input_path = (
-        "/home/lao/Notebook/Research/"
-        + "Clinker Lithofacies Automation/data/segmentation/images"
-    )
-    annotations = "/home/lao/Data/annotations.xml"
+    if "KAGGLE_CONTAINER_NAME" in os.environ:
+        input_path = '/kaggle/input/lithofaces'
+        annotations = "/kaggle/working/data/annotations.xml"
+        cwpath = "/kaggle/working/class_weights.txt"
+        dataset_path = "/kaggle/working/lithofaces.h5"
+    else:
+        input_path = (
+            "/home/lao/Notebook/Research/"
+            + "Clinker Lithofacies Automation/data/segmentation/images"
+        )
+        annotations = "/home/lao/Data/annotations.xml"
+        cwpath = "/home/lao/Data/class_weights.txt"
+        dataset_path = "/home/lao/Data/lithofaces.h5"
     label_map = {label: i for i, label in enumerate(select_classes, start=1)}
 
     print("Original dataset generating from annotations.xml.")
@@ -544,7 +552,7 @@ if __name__ == "__main__":
 
     print("Caculating class_weight.")
     class_weights = class_weight(select_classes, results, label_map)
-    with open("/home/lao/Data/class_weights.txt", mode="w") as file:
+    with open(cwpath, mode="w") as file:
         file.write(class_weights.__repr__())
     val_images = get_val_images(image_ranges)
     # val_images = {"3": [0],
@@ -557,7 +565,7 @@ if __name__ == "__main__":
     print("Generating Datasets.")
     datasets = form_datasets(results, val_images, label_map)
     print("Generating hdf5 file from Datasets.")
-    dataset_to_h5(datasets, dataset_path="/home/lao/Data/lithofaces.h5")
+    dataset_to_h5(datasets, dataset_path=dataset_path)
 """
 
 https://jaidevd.github.io/posts/weighted-loss-functions-for-instance-segmentation/
