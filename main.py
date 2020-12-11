@@ -125,12 +125,8 @@ class Model:
             self.train_epoch(self.train_loader)
             # evaluate on validation set
             self.validate_epoch(self.val_loader)
-            # test an image and save
+            # test images and save
             self.test(epoch)
-            self.test(
-                epoch,
-                "../data/segmentation/images/122_image_201023_002.JPG",
-                True)
             if config.scheduler == "CosineAnnealingLR":
                 self.scheduler.step()
                 config.learning_rate_current = self.scheduler.get_last_lr()[0]
@@ -154,7 +150,7 @@ class Model:
                 break
             torch.cuda.empty_cache()
 
-    def test(self, epoch, image_path=None, is_in=False):
+    def test(self, epoch, image_paths=None, is_in=False):
         def normalize(image):
             # Calculate from whole lithofaces data
             return transforms.Compose(
@@ -175,30 +171,24 @@ class Model:
                 ]
             )(image)
 
-        if image_path is None:
-            image_path = self.config.test_image
-        image = Image.open(image_path)
-        image = normalize(image).unsqueeze(0).to(self.config.device)
-        # compute output
         self.model.eval()
 
         with torch.no_grad():
-            if self.config.deep_supervision:
-                output = self.model(image)[-1]
-            else:
-                output = self.model(image)
-            output = torch.sigmoid(output).cpu()
-        if is_in:
-            plt.imsave(
-                f"./networks/{self.config.name}/T{epoch}.png",
-                torch.argmax(output[0], 0),
-            )
-        else:
-            plt.imsave(
-                f"./networks/{self.config.name}/{epoch}.png",
-                torch.argmax(
-                    output[0],
-                    0))
+            if image_paths is None:
+                image_paths = self.config.test_images
+            for idx, image_path in enumerate(image_paths):
+                image = Image.open(image_path)
+                image = normalize(image).unsqueeze(0).to(self.config.device)
+                if self.config.deep_supervision:
+                    output = self.model(image)[-1]
+                else:
+                    output = self.model(image)
+                output = torch.sigmoid(output).cpu()
+                plt.imsave(
+                    f"./networks/{self.config.name}/{idx}-{epoch}.png",
+                    torch.argmax(output[0], 0),
+                )
+                del image
         torch.cuda.empty_cache()
 
 
@@ -208,12 +198,19 @@ if __name__ == "__main__":
         config.path = "/kaggle/input/lithofaces-dataset/lithofaces.h5"
         config.batch_size = 32
         config.num_workers = 2
+        test_path = "/kaggle/input/lithofaces-test-image/"
+        config.test_images = [
+            test_path + "0ce6b3901bcd961e6e8d4911b60b4547.JPG",
+            test_path + "2010.136.1_200X130909_011.JPG"]
     else:
         config.path = "/home/lao/Data/lithofaces.h5"
         config.batch_size = 20
         config.num_workers = 12
+        test_path = "../data/segmentation/images/"
+        config.test_images = [
+            test_path + "116_image_130909_041.JPG",
+            test_path + "122_image_201023_002.JPG"]
     config.model = "NestedUNet"
-    config.test_image = "../data/segmentation/images/116_image_130909_041.JPG"
     config.loss = "BCEPixelWiseDiceLoss"
     config.loss_alpha = 1.0
     config.loss_beta = 1.0
