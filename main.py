@@ -1,24 +1,18 @@
 import os
 import pathlib
-from collections import OrderedDict
+
 import matplotlib.pyplot as plt
-import cv2
-import pandas as pd
 import torch
 import torch.backends.cudnn as cudnn
-import torch.nn.functional as F
-import yaml
-from sklearn.model_selection import train_test_split
-from tqdm.autonotebook import tqdm
-
-from logger import Logger
 from PIL import Image
+from torchvision import transforms
+
 from config import Config
 from datasets import Dataset
+from logger import Logger
 from losses import get_loss_criterion
 from models import get_model
-from utils import AverageMeter, get_optimizer, get_scheduler, iou_score
-from torchvision import transforms
+from utils import get_optimizer, get_scheduler, iou_score
 
 
 class Model:
@@ -28,7 +22,8 @@ class Model:
         self.root = pathlib.Path(config.path)
         if config.name is None:
             name = f"{config.dataset}_{config.model}"
-            config.name = name + ("_wDS" if config.deep_supervision else "_woDS")
+            config.name = name + ("_wDS"
+                                  if config.deep_supervision else "_woDS")
         os.makedirs(f"networks/{config.name}", exist_ok=True)
         config.save(f"networks/{config.name}/config.yml")
         # Define loss function(criterion)
@@ -77,8 +72,8 @@ class Model:
                 loss += self.criterion(output, target, weight_map)
             loss /= len(outputs)
             iou = iou_score(
-                outputs[-1], target, self.config.labels, self.config.ignore_labels
-            )
+                outputs[-1],
+                target, self.config.labels, self.config.ignore_labels)
         else:
             output = self.model(input)
             loss = self.criterion(output, target, weight_map)
@@ -105,17 +100,14 @@ class Model:
         return loss.item(), iou
 
     def train_epoch(self, train_loader):
-        config = self.config
         # switch to train mode
         self.model.train()
         for input, target, weight_map, _ in train_loader:
             input = input.cuda(non_blocking=True)
             target = target.cuda(non_blocking=True)
-
             self.train_iter(input, target, weight_map)
 
     def validate_epoch(self, val_loader):
-        config = self.config
         # switch to evaluate mode
         self.model.eval()
         with torch.no_grad():
@@ -136,20 +128,22 @@ class Model:
             # test an image and save
             self.test(epoch)
             self.test(
-                epoch, "../data/segmentation/images/122_image_201023_002.JPG", True
-            )
+                epoch,
+                "../data/segmentation/images/122_image_201023_002.JPG",
+                True)
             if config.scheduler == "CosineAnnealingLR":
                 self.scheduler.step()
-                self.config.learning_rate_current = self.scheduler.get_last_lr()[0]
+                config.learning_rate_current = self.scheduler.get_last_lr()[0]
             elif config.scheduler == "ReduceLROnPlateau":
                 self.scheduler.step(Logger.data["val"]["loss"])
-                self.config.learning_rate_current = self.scheduler.get_last_lr()[0]
+                config.learning_rate_current = self.scheduler.get_last_lr()[0]
             trigger += 1
 
             if Logger.data["val"]["iou"] > best_iou:
                 torch.save(
-                    self.model.state_dict(), "networks/%s/model.pth" % config.name
-                )
+                    self.model.state_dict(),
+                    "networks/%s/model.pth" %
+                    config.name)
                 best_iou = Logger.data["val"]["iou"]
                 # pbar.display("=> saved best model")
                 trigger = 0
@@ -201,8 +195,10 @@ class Model:
             )
         else:
             plt.imsave(
-                f"./networks/{self.config.name}/{epoch}.png", torch.argmax(output[0], 0)
-            )
+                f"./networks/{self.config.name}/{epoch}.png",
+                torch.argmax(
+                    output[0],
+                    0))
         torch.cuda.empty_cache()
 
 
@@ -224,7 +220,8 @@ if __name__ == "__main__":
     config.loss_gamme = 250.0
     config.ignore_labels = ["C3A"]
     config.epochs = 200
-    # config.weight = None
+    # weight should be none when use diceloss
+    config.weight = None
     # config.learning_rate = 0.01
     Config.check_classes(config)
     model = Model(config=config)
@@ -232,5 +229,9 @@ if __name__ == "__main__":
     model.setup_dataset(config.path)
     print("=>Training.")
     Logger.config = config
-    Logger.init(model.train_loader,model.val_loader,epochs=config.epochs,progress=True)
+    Logger.init(
+        model.train_loader,
+        model.val_loader,
+        epochs=config.epochs,
+        progress=True)
     model.train()

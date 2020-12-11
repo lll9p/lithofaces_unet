@@ -8,6 +8,10 @@ def get_model(config):
         model = NestedUNet(
             config.num_classes, config.input_channels, config.deep_supervision
         )
+    if config.model == "UNet":
+        model = NestedUNet(
+            config.num_classes, config.input_channels
+        )
     if config.model == "U2NETP":
         model = U2NETP(config.input_channels, config.num_classes,)
     return model

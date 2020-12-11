@@ -48,8 +48,8 @@ class Logger:
                     # trigger save
                     if Logger.config is not None:
                         Logger.learning_rate = Logger.config.learning_rate_current
-                    self.save()
                     Logger.epoch = Logger.bars["epoch"].n
+                    self.save()
                     Logger.bars["train"].reset()
                     Logger.bars["val"].reset()
                     postfix_str = (
@@ -61,7 +61,8 @@ class Logger:
                     Logger.bars["epoch"].set_postfix_str(postfix_str)
                     Logger.bars["epoch"].update(1)
                     # clear tmp data and state
-                    Logger.epoch_data[self.name] = dict(loss=[], iou=[])
+                    Logger.epoch_data["train"] = dict(loss=[], iou=[])
+                    Logger.epoch_data["val"] = dict(loss=[], iou=[])
             return loss, iou
 
         return wrapped_function
