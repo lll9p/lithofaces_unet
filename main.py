@@ -8,7 +8,7 @@ from PIL import Image
 from torchvision import transforms
 
 from config import Config
-from datasets import Dataset
+from datasets import Dataset,normalize
 from logger import Logger
 from losses import get_loss_criterion
 from models import get_model
@@ -151,26 +151,6 @@ class Model:
             torch.cuda.empty_cache()
 
     def test(self, epoch, image_paths=None, is_in=False):
-        def normalize(image):
-            # Calculate from whole lithofaces data
-            return transforms.Compose(
-                [
-                    transforms.ToTensor(),
-                    transforms.Normalize(
-                        mean=[
-                            0.280313914506407,
-                            0.41555059997248583,
-                            0.3112942716287795,
-                        ],
-                        std=[
-                            0.16130980680117304,
-                            0.19598465956271507,
-                            0.14531163979659875,
-                        ],
-                    ),
-                ]
-            )(image)
-
         self.model.eval()
 
         with torch.no_grad():
@@ -204,14 +184,15 @@ if __name__ == "__main__":
             test_path + "2010.136.1_200X130909_011.JPG"]
     else:
         config.path = "/home/lao/Data/lithofaces.h5"
-        config.batch_size = 20
+        config.batch_size = 64
         config.num_workers = 12
         test_path = "../data/segmentation/images/"
         config.test_images = [
             test_path + "116_image_130909_041.JPG",
             test_path + "122_image_201023_002.JPG"]
-    config.model = "NestedUNet"
+    config.model = "UNet"
     config.loss = "BCEPixelWiseDiceLoss"
+    config.deep_supervision = False
     config.loss_alpha = 1.0
     config.loss_beta = 1.0
     config.loss_gamme = 250.0

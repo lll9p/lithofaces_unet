@@ -21,7 +21,25 @@ from torchvision import transforms
 #     for index, label in enumerate(labelnums):
 #         mask_[index][mask == label] = 1
 #     return mask_
-
+def normalize(image):
+    # Calculate from whole lithofaces data
+    return transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize(
+                mean=[
+                    0.280313914506407,
+                    0.41555059997248583,
+                    0.3112942716287795,
+                ],
+                std=[
+                    0.16130980680117304,
+                    0.19598465956271507,
+                    0.14531163979659875,
+                ],
+            ),
+        ]
+    )(image)
 
 class Dataset(data.Dataset):
     def __init__(self, root, config=None, mode="train"):
@@ -75,26 +93,6 @@ class Dataset(data.Dataset):
         return self.data_len
 
     def transforms(self, image, mask, weight_map):
-        def normalize(image):
-            # Calculate from whole lithofaces data
-            return transforms.Compose(
-                [
-                    transforms.ToTensor(),
-                    transforms.Normalize(
-                        mean=[
-                            0.280313914506407,
-                            0.41555059997248583,
-                            0.3112942716287795,
-                        ],
-                        std=[
-                            0.16130980680117304,
-                            0.19598465956271507,
-                            0.14531163979659875,
-                        ],
-                    ),
-                ]
-            )(image)
-
         image = transforms.functional.to_pil_image(image)
         mask = transforms.functional.to_pil_image(mask)
         # RandomCrop

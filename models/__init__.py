@@ -9,7 +9,7 @@ def get_model(config):
             config.num_classes, config.input_channels, config.deep_supervision
         )
     if config.model == "UNet":
-        model = NestedUNet(
+        model = UNet(
             config.num_classes, config.input_channels
         )
     if config.model == "U2NETP":
