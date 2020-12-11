@@ -101,7 +101,8 @@ def process_original_dataset(
     # get image id
     image_id = image_node.attrib["id"]
     # get image name
-    image_name = image_node.attrib["name"].split("/")[1]
+    # image_name = image_node.attrib["name"].split("/")[1]
+    image_name = image_node.attrib["name"]
     image_path = os.path.join(input_path, image_name)
     image = cv2.imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -528,7 +529,7 @@ if __name__ == "__main__":
         "孔洞": "Pore",
     }
     select_classes = ["Alite", "Blite", "C3A", "Pore", "edges"]
-    image_ranges = list(range(31)) + [38, 39, 94, 121, 138]
+    image_ranges = list(range(37)) + [38, 39, 94, 121, 138]
 
     if "KAGGLE_CONTAINER_NAME" in os.environ:
         input_path = '/kaggle/input/lithofaces'

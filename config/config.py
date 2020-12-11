@@ -12,7 +12,8 @@ class Config(dict):
 
     @staticmethod
     def check_classes(config):
-        labels_length = len(config["labels"])-len(config["ignore_labels"])
+        labels_length = len(config["labels"])-len(config["ignore_labels"])+1
+        # including background
         if config["num_classes"] != labels_length:
             config["num_classes"] = labels_length
 

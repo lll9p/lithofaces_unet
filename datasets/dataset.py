@@ -7,20 +7,20 @@ from torch.utils import data
 from torchvision import transforms
 
 
-def semantic2onehot(mask, labels, ignore_labels):
-    def labels2num(labels, ignore_labels):
-        labelnums = []
-        for i, label in enumerate(labels):
-            if label in ignore_labels:
-                continue
-            labelnums.append(i)
-        return labelnums
+# def semantic2onehot(mask, labels, ignore_labels):
+#     def labels2num(labels, ignore_labels):
+#         labelnums = []
+#         for i, label in enumerate(labels):
+#             if label in ignore_labels:
+#                 continue
+#             labelnums.append(i)
+#         return labelnums
 
-    labelnums = labels2num(labels, ignore_labels)
-    mask_ = np.zeros((len(labelnums),) + mask.shape, dtype=np.uint8)
-    for index, label in enumerate(labelnums):
-        mask_[index][mask == label] = 1
-    return mask_
+#     labelnums = labels2num(labels, ignore_labels)
+#     mask_ = np.zeros((len(labelnums),) + mask.shape, dtype=np.uint8)
+#     for index, label in enumerate(labelnums):
+#         mask_[index][mask == label] = 1
+#     return mask_
 
 
 class Dataset(data.Dataset):
@@ -31,14 +31,11 @@ class Dataset(data.Dataset):
         self.mode = mode
         self.dataset = None
         with h5py.File(self.config.path, "r") as file:
-            self.data_len = len(file[f"{self.mode}/images"])
+            self.data_len = len(file[f"{mode}/images"])
         if "KAGGLE_CONTAINER_NAME" in os.environ:
-            h5file = h5py.File(
-                self.config.path,
-                "r",
-                libver="latest",
-                swmr=True)[
-                self.mode]
+            h5file = h5py.File(self.config.path, "r", libver="latest", swmr=True)[
+                self.mode
+            ]
             print("Detect in Kaggle, reading all data to memory.")
             self.dataset = dict()
             self.dataset["images"] = h5file["images"][()]
@@ -58,6 +55,24 @@ class Dataset(data.Dataset):
                 ),
             ]
         )
+
+    def __getitem__(self, index):
+        if self.dataset is None:
+            self.dataset = h5py.File(self.config.path, "r", libver="latest", swmr=True)[
+                self.mode
+            ]
+        image, mask, weight_map, idx = (
+            self.dataset["images"][index],
+            self.dataset["masks"][index],
+            self.dataset["weight_maps"][index],
+            self.dataset["idx"][index],
+        )
+        if self.transforms is not None:
+            image, mask, weight_map = self.transforms(image, mask, weight_map)
+        return image, mask, weight_map, idx.decode()
+
+    def __len__(self):
+        return self.data_len
 
     def transforms(self, image, mask, weight_map):
         def normalize(image):
@@ -83,11 +98,10 @@ class Dataset(data.Dataset):
         image = transforms.functional.to_pil_image(image)
         mask = transforms.functional.to_pil_image(mask)
         # RandomCrop
-        i, j, h, w = transforms.RandomCrop.get_params(
-            image, output_size=(224, 224))
+        i, j, h, w = transforms.RandomCrop.get_params(image, output_size=(224, 224))
         image = transforms.functional.crop(image, i, j, h, w)
         mask = transforms.functional.crop(mask, i, j, h, w)
-        weight_map = weight_map[..., i: i + h, j: j + w]
+        weight_map = weight_map[..., i : i + h, j : j + w]
         if random.random() > 0.5:
             image = transforms.functional.hflip(image)
             mask = transforms.functional.hflip(mask)
@@ -101,29 +115,14 @@ class Dataset(data.Dataset):
             image = transforms.functional.rotate(image, 90)
             mask = transforms.functional.rotate(mask, 90)
             weight_map = np.rot90(weight_map)
-        if self.mode == 'train':
+        # Random gaussian blur
+        if bool(np.random.choice([True, False], p=[0.2, 0.8])):
+            kernel_size = int(np.random.choice([11, 21, 31]))
+            sigma = int(np.random.choice([10, 15, 20]))
+            image = transforms.functional.gaussian_blur(image, kernel_size, sigma)
+        if self.mode == "train":
             image = self.color_composed(image)
         mask = np.array(mask)
         image = normalize(image)
         return image, mask.astype(np.int64), weight_map.copy()
 
-    def __getitem__(self, index):
-        if self.dataset is None:
-            self.dataset = h5py.File(
-                self.config.path,
-                "r",
-                libver="latest",
-                swmr=True)[
-                self.mode]
-        image, mask, weight_map, idx = (
-            self.dataset["images"][index],
-            self.dataset["masks"][index],
-            self.dataset["weight_maps"][index],
-            self.dataset["idx"][index],
-        )
-        if self.transforms is not None:
-            image, mask, weight_map = self.transforms(image, mask, weight_map)
-        return image, mask, weight_map, idx.decode()
-
-    def __len__(self):
-        return self.data_len

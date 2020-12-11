@@ -29,7 +29,9 @@ def expand_as_one_hot(input, labels, ignore_labels=None):
     # scatter to get the one-hot tensor
     result = torch.zeros(shape).to(input.device).scatter_(1, input, 1)
     # 1 means except background
-    return result[:, 1:, ...]
+    # return result[:, 1:, ...]
+    # including background
+    return result
 
 def iou_score(output, target, *args):
     smooth = 1e-5
