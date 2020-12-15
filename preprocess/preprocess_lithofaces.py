@@ -83,7 +83,7 @@ def fix_edge(mask, kernel=kernel):
         mask_ = (mask > 0).astype(np.uint16) - shape_
         mask_pad = np.pad(mask_, 1, mode="reflect")
         for (y, x) in np.argwhere(shape_edge):
-            if mask_pad[y - 1 : y + 2, x - 1 : x + 2].sum() != 0:
+            if mask_pad[y - 1: y + 2, x - 1: x + 2].sum() != 0:
                 shape_[y, x] = 0
                 touched[y, x] = 1
         shape_ *= shape_id
@@ -92,10 +92,12 @@ def fix_edge(mask, kernel=kernel):
 
 
 def process_original_dataset(
-    image_node, input_path="/kaggle/input/lithofaces", translations=None, label_map=None
-):
+        image_node,
+        input_path="/kaggle/input/lithofaces",
+        translations=None,
+        label_map=None):
     """
-    处理一张图片节点，生成contour,并把图片及countor分割为256x256->256x256,512x512->256x256
+    处理一张图片节点，生成contour,并把图片padding成256的偶数倍
     """
     labels = label_map.keys()
     # get image id
@@ -131,7 +133,8 @@ def process_original_dataset(
         label_dict[label].append(label_num)
         label_num += 1
         # Process shapes overlapping
-        overlapping = ((mask > 0).astype(np.uint16) + (shape > 0).astype(np.uint16)) > 1
+        overlapping = ((mask > 0).astype(np.uint16) +
+                       (shape > 0).astype(np.uint16)) > 1
         mask[overlapping] = 0
         shape[overlapping] = 0
         edges[overlapping] = 1
@@ -157,7 +160,11 @@ def balancewm(mask):
     return wc
 
 
-def get_unet_border_weight_map(annotation, w0=5.0, sigma=13.54591536778324, eps=1e-32):
+def get_unet_border_weight_map(
+        annotation,
+        w0=5.0,
+        sigma=13.54591536778324,
+        eps=1e-32):
     # https://github.com/czbiohub/microDL/blob/master/micro_dl/utils/masks.py
     """
     Return weight map for borders as specified in UNet paper
@@ -205,7 +212,10 @@ def get_unet_border_weight_map(annotation, w0=5.0, sigma=13.54591536778324, eps=
     unique_values = np.unique(labeled_array).tolist()
     weight_map = [0] * len(unique_values)
     for index, unique_value in enumerate(unique_values):
-        mask = np.zeros((annotation.shape[0], annotation.shape[1]), dtype=np.float64)
+        mask = np.zeros(
+            (annotation.shape[0],
+             annotation.shape[1]),
+            dtype=np.float64)
         mask[annotation == unique_value] = 1
         weight_map[index] = 1 / mask.sum()
 
@@ -235,13 +245,17 @@ def get_unet_border_weight_map(annotation, w0=5.0, sigma=13.54591536778324, eps=
         for index in range(np.max(labeled_array)):
             mask = np.ones_like(labeled_array)
             mask[labeled_array == index + 1] = 0
-            distance_maps[:, :, index] = scipy.ndimage.distance_transform_edt(mask)
+            distance_maps[:, :,
+                          index] = scipy.ndimage.distance_transform_edt(mask)
     distance_maps = np.sort(distance_maps, 2)
     d1 = distance_maps[:, :, 0]
     d2 = distance_maps[:, :, 1]
     border_loss_map = w0 * np.exp((-1 * (d1 + d2) ** 2) / (2 * (sigma ** 2)))
 
-    zero_label = np.zeros((annotation.shape[0], annotation.shape[1]), dtype=np.float64)
+    zero_label = np.zeros(
+        (annotation.shape[0],
+         annotation.shape[1]),
+        dtype=np.float64)
     zero_label[labeled_array == 0] = 1
     border_loss_map = np.multiply(border_loss_map, zero_label)
     return border_loss_map + inner + wc
@@ -250,6 +264,7 @@ def get_unet_border_weight_map(annotation, w0=5.0, sigma=13.54591536778324, eps=
 def split_to_256(image, mask, label):
     # image or mask
     y_size, x_size = image.shape[:2]
+    resize_factors = [i**0.5 for i in [1, 2, 3, 4, 9, 16]]
     resize_factors = {
         "768": [1, 2 ** 0.5, 2],
         "1536": [1, 2 ** 0.5, 2, 3, 4],
@@ -267,7 +282,8 @@ def split_to_256(image, mask, label):
             # 边界加强
             mask_new = mask.copy()
             mask_new_unique = np.unique(mask_new)
-            mask_new_tmp = np.zeros((new_shape[0], new_shape[1]), dtype=np.uint16)
+            mask_new_tmp = np.zeros(
+                (new_shape[0], new_shape[1]), dtype=np.uint16)
             # 分离进行缩放，并避免出现边界出现不同数值的bug
             for mask_new_i in mask_new_unique:
                 shape_tmp = mask_new == mask_new_i
@@ -301,8 +317,9 @@ def split_to_256(image, mask, label):
                         mode="reflect",
                     )
                     mask_block = np.pad(
-                        mask_block, ((256 - yy, 0), (256 - xx, 0)), mode="reflect"
-                    )
+                        mask_block,
+                        ((256 - yy, 0), (256 - xx, 0)),
+                        mode="reflect")
                 except BaseException:
                     print(image_block.shape, mask_block.shape)
                     raise f"{image_block.shape}/{mask_block.shape}"
@@ -321,7 +338,8 @@ def split_to_256(image, mask, label):
             weight_map = get_unet_border_weight_map(weight_map_block)
             weight_maps.append(weight_map)
             # convert mask to semantic
-            assert image_block.shape == (256, 256, 3), f"{image_block.shape} Wrong!"
+            assert image_block.shape == (
+                256, 256, 3), f"{image_block.shape} Wrong!"
             assert mask_block.shape == (256, 256), f"{mask_block.shape} Wrong!"
 
     return images, masks, weight_maps
@@ -348,8 +366,8 @@ def _image_deal(result, val_images, label_map):
                 image[y:y_stop, x:x_stop, ...], mask[y:y_stop, x:x_stop], label
             )
             masks = [
-                mask_instance_to_semantic(mask, label, label_map) for mask in masks
-            ]
+                mask_instance_to_semantic(mask, label, label_map)
+                for mask in masks]
             if index in split_idx:
                 _dataset["images"] += images
                 _dataset["masks"] += masks
@@ -366,7 +384,11 @@ def _image_deal(result, val_images, label_map):
                 ]
     else:
         images, masks, weight_maps = split_to_256(image, mask, label)
-        masks = [mask_instance_to_semantic(mask, label, label_map) for mask in masks]
+        masks = [
+            mask_instance_to_semantic(
+                mask,
+                label,
+                label_map) for mask in masks]
         _dataset["images"] += images
         _dataset["masks"] += masks
         _dataset["weight_maps"] += weight_maps
@@ -393,12 +415,14 @@ def form_datasets(results, val_images, label_map):
             if "V" in idx:
                 val_dataset["images"].append(dataset_result["images"][i])
                 val_dataset["masks"].append(dataset_result["masks"][i])
-                val_dataset["weight_maps"].append(dataset_result["weight_maps"][i])
+                val_dataset["weight_maps"].append(
+                    dataset_result["weight_maps"][i])
                 val_dataset["idx"].append(idx)
             if "T" in idx:
                 train_dataset["images"].append(dataset_result["images"][i])
                 train_dataset["masks"].append(dataset_result["masks"][i])
-                train_dataset["weight_maps"].append(dataset_result["weight_maps"][i])
+                train_dataset["weight_maps"].append(
+                    dataset_result["weight_maps"][i])
                 train_dataset["idx"].append(idx)
     datasets = dict(train=train_dataset, val=val_dataset)
     return datasets
@@ -480,7 +504,12 @@ def dataset_to_h5(datasets, dataset_path="lithofaces.h5"):
             file[f"{dataset_name}/idx"][:] = idxes
 
 
-def process_original(annotations, translations, label_map, image_ranges, input_path):
+def process_original(
+        annotations,
+        translations,
+        label_map,
+        image_ranges,
+        input_path):
     tree = ET.parse(annotations)
     root = tree.getroot()
     images = []
@@ -497,8 +526,13 @@ def process_original(annotations, translations, label_map, image_ranges, input_p
     CPU_NUM = multiprocessing.cpu_count()
     with multiprocessing.Pool(CPU_NUM) as pool:
         results = list(
-            tqdm(pool.imap(func, images), desc="Images", position=0, total=len(images))
-        )
+            tqdm(
+                pool.imap(
+                    func,
+                    images),
+                desc="Images",
+                position=0,
+                total=len(images)))
     return results
 
 
@@ -529,7 +563,7 @@ if __name__ == "__main__":
         "孔洞": "Pore",
     }
     select_classes = ["Alite", "Blite", "C3A", "Pore", "edges"]
-    image_ranges = list(range(37)) + [38, 39, 94, 121, 138]
+    image_ranges = list(range(40)) + [84, 94, 121, 138]
 
     if "KAGGLE_CONTAINER_NAME" in os.environ:
         input_path = '/kaggle/input/lithofaces'

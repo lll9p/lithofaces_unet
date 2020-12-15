@@ -42,7 +42,7 @@ class Logger:
                 # Logger.bars["epoch"].display(f'{Logger.bars["train"].n},{Logger.bars["val"].n},{Logger.iter_nums["train"]}')
                 # if iter over epoch then update epoch bar
                 if (
-                    Logger.bars["train"].n+Logger.bars["val"].n
+                    Logger.bars["train"].n + Logger.bars["val"].n
                     >= Logger.iter_nums["train"] + Logger.iter_nums["val"]
                 ):
                     # trigger save
@@ -94,9 +94,9 @@ class Logger:
             file.write(",".join(map(str, data)) + "\n")
 
     @staticmethod
-    def init(train_loader, val_loader, epochs, progress=True):
-        Logger.progress = progress
-        Logger.iter_nums["epoch"] = epochs
+    def init(train_loader, val_loader, progress=True, config=None):
+        Logger.config = config
+        Logger.iter_nums["epoch"] = config.epochs
         Logger.iter_nums["train"] = len(train_loader)
         Logger.iter_nums["val"] = len(val_loader)
         if progress:
@@ -105,36 +105,24 @@ class Logger:
                 "{n_fmt}/{total_fmt} {elapsed}<{remaining},{rate_fmt}"
             )
             Logger.progress = progress
-            # creating epoch bar
-            epoch_bar = tqdm.tqdm(
-                desc="Epoch",
-                total=Logger.iter_nums["epoch"],
-                position=0,
-                leave=True,
-                dynamic_ncols=True,
-                bar_format=bar_format,
-            )
-            # creating train bar
-            train_bar = tqdm.tqdm(
-                desc="Train",
-                total=Logger.iter_nums["train"],
-                position=1,
-                leave=True,
-                dynamic_ncols=True,
-                bar_format=bar_format,
-            )
-            # creating val bar
-            val_bar = tqdm.tqdm(
-                desc="Val  ",
-                total=Logger.iter_nums["val"],
-                position=2,
-                leave=True,
-                dynamic_ncols=True,
-                bar_format=bar_format,
-            )
-            Logger.bars["epoch"] = epoch_bar
-            Logger.bars["train"] = train_bar
-            Logger.bars["val"] = val_bar
+            for pos, [bar_name, bar_desc] in enumerate(
+                [["epoch", "Epoch"], ["train", "Train"], ["val", "Val  "]]
+            ):
+                # creating epoch bar
+                bar = tqdm.tqdm(
+                    desc=bar_desc,
+                    total=Logger.iter_nums[bar_name],
+                    position=pos,
+                    leave=True,
+                    dynamic_ncols=True,
+                    bar_format=bar_format,
+                )
+                Logger.bars[bar_name] = bar
+
+    @staticmethod
+    def close():
+        for bar in Logger.bars.values():
+            bar.close()
 
     @staticmethod
     def get(name, param):

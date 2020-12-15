@@ -19,6 +19,9 @@ class Model:
     def __init__(self, config=None):
         if config is None:
             config = Config()
+        self.config = config
+    def setup(self):
+        config = self.config
         self.root = pathlib.Path(config.path)
         if config.name is None:
             name = f"{config.dataset}_{config.model}"
@@ -36,13 +39,8 @@ class Model:
         params = filter(lambda p: p.requires_grad, self.model.parameters())
         self.optimizer = get_optimizer(config, params)
         self.scheduler = get_scheduler(config, self.optimizer)
-        self.config = config
-        self.secondloss = False
-        self.thirdloss = False
-
-    def setup_dataset(self, dataset_path):
-        # Data loading code
-        config = self.config
+        dataset_path = config.path
+        # Data loading
         train_dataset = Dataset(root=self.root, mode="train", config=config)
         val_dataset = Dataset(root=self.root, mode="val", config=config)
 
@@ -115,8 +113,9 @@ class Model:
                 input = input.cuda()
                 target = target.cuda()
                 self.val_iter(input, target, weight_map)
+        self.model.train()
 
-    def train(self):
+    def train(self,predict=False):
         config = self.config
         best_iou = 0
         trigger = 0
@@ -126,7 +125,8 @@ class Model:
             # evaluate on validation set
             self.validate_epoch(self.val_loader)
             # test images and save
-            self.test(epoch)
+            if predict:
+                self.test(epoch)
             if config.scheduler == "CosineAnnealingLR":
                 self.scheduler.step()
                 config.learning_rate_current = self.scheduler.get_last_lr()[0]
@@ -150,7 +150,7 @@ class Model:
                 break
             torch.cuda.empty_cache()
 
-    def test(self, epoch, image_paths=None, is_in=False):
+    def predict(self, epoch, image_paths=None, is_in=False):
         self.model.eval()
 
         with torch.no_grad():
@@ -169,9 +169,50 @@ class Model:
                     torch.argmax(output[0], 0),
                 )
                 del image
-        torch.cuda.empty_cache()
+        self.model.train()
+    @classmethod
+    def from_checkpoint(cls, checkpoint_path, model, optimizer, lr_scheduler, loss_criterion, eval_criterion, loaders,
+                        tensorboard_formatter=None, skip_train_validation=False):
+        state = utils.load_checkpoint(checkpoint_path, model, optimizer)
+        checkpoint_dir = os.path.split(checkpoint_path)[0]
+        return cls(model, optimizer, lr_scheduler,
+                   loss_criterion, eval_criterion,
+                   torch.device(state['device']),
+                   loaders, checkpoint_dir,
+                   eval_score_higher_is_better=state['eval_score_higher_is_better'],
+                   best_eval_score=state['best_eval_score'],
+                   num_iterations=state['num_iterations'],
+                   num_epoch=state['epoch'],
+                   max_num_epochs=state['max_num_epochs'],
+                   max_num_iterations=state['max_num_iterations'],
+                   validate_after_iters=state['validate_after_iters'],
+                   log_after_iters=state['log_after_iters'],
+                   validate_iters=state['validate_iters'],
+                   tensorboard_formatter=tensorboard_formatter,
+                   skip_train_validation=skip_train_validation)
+    def _save_checkpoint(self, is_best):
+        # remove `module` prefix from layer names when using `nn.DataParallel`
+        # see: https://discuss.pytorch.org/t/solved-keyerror-unexpected-key-module-encoder-embedding-weight-in-state-dict/1686/20
+        if isinstance(self.model, nn.DataParallel):
+            state_dict = self.model.module.state_dict()
+        else:
+            state_dict = self.model.state_dict()
 
-
+        utils.save_checkpoint({
+            'epoch': self.num_epoch + 1,
+            'num_iterations': self.num_iterations,
+            'model_state_dict': state_dict,
+            'best_eval_score': self.best_eval_score,
+            'eval_score_higher_is_better': self.eval_score_higher_is_better,
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'device': str(self.device),
+            'max_num_epochs': self.max_num_epochs,
+            'max_num_iterations': self.max_num_iterations,
+            'validate_after_iters': self.validate_after_iters,
+            'log_after_iters': self.log_after_iters,
+            'validate_iters': self.validate_iters
+        }, is_best, checkpoint_dir=self.checkpoint_dir,
+            logger=logger)
 if __name__ == "__main__":
     config = Config()
     if "KAGGLE_CONTAINER_NAME" in os.environ:
@@ -197,19 +238,18 @@ if __name__ == "__main__":
     config.loss_beta = 1.0
     config.loss_gamme = 250.0
     config.ignore_labels = ["C3A"]
-    config.epochs = 200
+    config.epochs = 2
     # weight should be none when use diceloss
     config.weight = None
     # config.learning_rate = 0.01
     Config.check_classes(config)
     model = Model(config=config)
     print("=>Setting Dataset.")
-    model.setup_dataset(config.path)
+    model.setup()
     print("=>Training.")
-    Logger.config = config
     Logger.init(
         model.train_loader,
         model.val_loader,
-        epochs=config.epochs,
-        progress=True)
+        progress=True,config=config)
     model.train()
+    Logger.close()
