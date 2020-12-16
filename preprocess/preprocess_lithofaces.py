@@ -67,6 +67,7 @@ def fix_edge(mask, kernel=kernel):
     shape_classes = np.unique(mask)
     mask_new = np.zeros(mask.shape, dtype=np.uint16)
     touched = np.zeros(mask.shape, dtype=np.uint16)
+    edges = np.zeros(mask.shape, dtype=np.uint16)
     for shape_id in shape_classes:
         if shape_id == 0:
             # background
@@ -86,9 +87,10 @@ def fix_edge(mask, kernel=kernel):
             if mask_pad[y - 1: y + 2, x - 1: x + 2].sum() != 0:
                 shape_[y, x] = 0
                 touched[y, x] = 1
-        shape_ *= shape_id
-        mask_new += shape_
-    return mask_new, touched
+        mask_new[shape_.astype(bool)] = shape_id
+        edges[shape_edge.astype(bool)] = 1
+    edges[touched.astype(bool)] = 1
+    return mask_new, edges
 
 
 def process_original_dataset(
@@ -108,6 +110,10 @@ def process_original_dataset(
     image_path = os.path.join(input_path, image_name)
     image = cv2.imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    if image.shape[0] == 768:
+        # pad 1024*768 image to 1024*1024
+        # easy to split train test sets
+        image = np.pad(image, ((256, 0), (0, 0), (0, 0)), mode="reflect")
     mask = np.zeros(image.shape[:2], dtype=np.uint16)
     edges = np.zeros(image.shape[:2], dtype=np.uint16)
     label_dict = {label: [] for label in labels}
@@ -129,6 +135,10 @@ def process_original_dataset(
             label_num,  # contour color OR [255,255,255]
             -1,  # contour thickness -1 means fill
         )
+        if image.shape[0] == 768:
+            # pad 1024*768 image to 1024*1024
+            # easy to split train test sets
+            shape = np.pad(shape, ((256, 0), (0, 0), (0, 0)), mode="reflect")
         # 保存shape的类别指示，由于是uint16，可容纳65536个类
         label_dict[label].append(label_num)
         label_num += 1
@@ -139,11 +149,11 @@ def process_original_dataset(
         shape[overlapping] = 0
         edges[overlapping] = 1
         mask = mask + shape
-    mask, touched = fix_edge(mask)
-    edges[touched.astype(bool)] = 1
-    label_dict["edges"] = [max(np.unique(mask)) + 1]
-    mask[edges.astype(bool)] = label_dict["edges"][0]
-    return image_id, image, mask, label_dict
+    mask, edges_ = fix_edge(mask)
+    edges[edges_.astype(bool)] = 1
+    # label_dict["edges"] = [max(np.unique(mask)) + 1]
+    # mask[edges.astype(bool)] = label_dict["edges"][0]
+    return image_id, image, mask, edges, label_dict
 
 
 # class balance weight map
@@ -343,15 +353,6 @@ def split_to_256(image, mask, label):
             assert mask_block.shape == (256, 256), f"{mask_block.shape} Wrong!"
 
     return images, masks, weight_maps
-
-
-# val_images = {"3": [0],
-#              "5": [0, 2],
-#              "9": [1],
-#              "20": [3],
-#              "22": [3],
-#              "26": [0, 3],
-#              }
 
 
 def _image_deal(result, val_images, label_map):
