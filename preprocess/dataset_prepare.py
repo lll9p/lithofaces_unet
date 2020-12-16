@@ -461,49 +461,37 @@ def split_data(result, path, resize_factors=[
                     trim(
                         labels_dict,
                         masks_block)).encode("ascii"))
-    lock.acquire()
-    dataset_file_append(path, idx_data, f"{name}/idx")
-    dataset_file_append(path, labels_data, f"{name}/labels")
-    dataset_file_append(path, images_data, f"{name}/images")
-    dataset_file_append(path, masks_data, f"{name}/masks")
-    dataset_file_append(path, edges_data, f"{name}/edges")
-    dataset_file_append(path, weight_maps_data, f"{name}/weight_maps")
-    lock.release()
-    # return idx_data, images_data, masks_data, \
-    # edges_data, weight_maps_data, labels_data
+    return idx_data, images_data, masks_data, \
+        edges_data, weight_maps_data, labels_data
 
 
 def create_dataset(train, val, path):
-    def init(lock_):
-        global lock
-        lock = lock_
     dataset_file_init(path)
     CPU_NUM = multiprocessing.cpu_count()
-    LOCK = multiprocessing.Lock()
     func = partial(split_data, path=path)
-    pool = multiprocessing.Pool(CPU_NUM, initializer=init, initargs=(LOCK,))
+    pool = multiprocessing.Pool(CPU_NUM)
     for name, dataset in {"val": val, "train": train}.items():
         with pool:
-            tuple(tqdm(
+            results = tuple(tqdm(
                 pool.imap_unordered(
                     func,
                     dataset.items()),
                 desc=name,
                 position=0,
                 total=len(dataset)))
-        # for [
-            # idx_data,
-            # images_data,
-            # masks_data,
-            # edges_data,
-            # weight_maps_data,
-            # labels_data] in results:
-            # dataset_file_append(path, idx_data, f"{name}/idx")
-            # dataset_file_append(path, labels_data, f"{name}/labels")
-            # dataset_file_append(path, images_data, f"{name}/images")
-            # dataset_file_append(path, masks_data, f"{name}/masks")
-            # dataset_file_append(path, edges_data, f"{name}/edges")
-            # dataset_file_append(path, weight_maps_data, f"{name}/weight_maps")
+        for [
+            idx_data,
+            images_data,
+            masks_data,
+            edges_data,
+            weight_maps_data,
+                labels_data] in results:
+            dataset_file_append(path, idx_data, f"{name}/idx")
+            dataset_file_append(path, labels_data, f"{name}/labels")
+            dataset_file_append(path, images_data, f"{name}/images")
+            dataset_file_append(path, masks_data, f"{name}/masks")
+            dataset_file_append(path, edges_data, f"{name}/edges")
+            dataset_file_append(path, weight_maps_data, f"{name}/weight_maps")
 
 
 if __name__ == "__main__":
