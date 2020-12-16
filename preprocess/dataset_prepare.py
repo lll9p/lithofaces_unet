@@ -395,6 +395,7 @@ def split_data(result, resize_factors=[i**0.5 for i in [1, 2, 3, 4, 9, 16]]):
     idx_data = []
     images_data = []
     masks_data = []
+    edges_data = []
     labels_data = []
     weight_maps_data = []
     window = 256
@@ -447,17 +448,19 @@ def split_data(result, resize_factors=[i**0.5 for i in [1, 2, 3, 4, 9, 16]]):
         for idx, (_, [y, y_stop], [x, x_stop]) in enumerate(blocks):
             image_block = image_new[y:y_stop, x:x_stop, ...]
             masks_block = masks_new[y:y_stop, x:x_stop]
+            edges_block = edges_new[y:y_stop, x:x_stop]
             border_wm = get_unet_border_weight_map(masks_block)
             idx_data.append(f"{name}-{factor}-{idx}".encode("ascii"))
             images_data.append(image_block)
             masks_data.append(masks_block)
+            edges_data.append(edges_block)
             weight_maps_data.append(border_wm)
             labels_data.append(
                 json.dumps(
                     trim(
                         labels_dict,
                         masks_block)).encode("ascii"))
-    return idx_data, images_data, masks_data, weight_maps_data, labels_data
+    return idx_data, images_data, masks_data, edges_data,weight_maps_data, labels_data
 
 
 def dataset_file_append(path, data, name):
@@ -484,12 +487,14 @@ def create_dataset(train, val, path):
             idx_data,
             images_data,
             masks_data,
+            edges_data,
             weight_maps_data,
                 labels_data] in results:
             dataset_file_append(path, idx_data, f"{name}/idx")
             dataset_file_append(path, labels_data, f"{name}/labels")
             dataset_file_append(path, images_data, f"{name}/images")
             dataset_file_append(path, masks_data, f"{name}/masks")
+            dataset_file_append(path, edges_data, f"{name}/edges")
             dataset_file_append(path, weight_maps_data, f"{name}/weight_maps")
 
 
