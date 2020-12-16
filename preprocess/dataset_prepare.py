@@ -106,8 +106,8 @@ def dataset_file_init(path="lithofaces.h5"):
                            (0, 256, 256), np.dtype("uint8"))
             create_dataset(
                 file, f"{dataset_name}/weight_maps", (0, 256, 256), np.float)
-            create_dataset(file, f"{dataset_name}/idx", (0,), "S10")
-            create_dataset(file, f"{dataset_name}/labels", (0,), "S10")
+            create_dataset(file, f"{dataset_name}/idx", (0,), "S15")
+            create_dataset(file, f"{dataset_name}/labels", (0,), "S10000")
 
 
 def dataset_file_append(path, data, name):
@@ -451,7 +451,7 @@ def split_data(result, lock, path, resize_factors=[
             masks_block = masks_new[y:y_stop, x:x_stop]
             edges_block = edges_new[y:y_stop, x:x_stop]
             border_wm = get_unet_border_weight_map(masks_block)
-            idx_data.append(f"{name}-{factor}-{idx}".encode("ascii"))
+            idx_data.append(f"{name}-{factor:.1f}-{idx}".encode("ascii"))
             images_data.append(image_block)
             masks_data.append(masks_block)
             edges_data.append(edges_block)
