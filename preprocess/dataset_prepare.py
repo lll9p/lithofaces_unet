@@ -469,8 +469,8 @@ def create_dataset(train, val, path):
     dataset_file_init(path)
     CPU_NUM = multiprocessing.cpu_count()
     func = partial(split_data, path=path)
-    pool = multiprocessing.Pool(CPU_NUM)
     for name, dataset in {"val": val, "train": train}.items():
+        pool = multiprocessing.Pool(CPU_NUM)
         with pool:
             results = tuple(tqdm(
                 pool.imap_unordered(
