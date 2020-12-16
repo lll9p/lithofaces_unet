@@ -390,7 +390,7 @@ def get_unet_border_weight_map(
     return border_loss_map + inner + wc
 
 
-def split_data(result,path, resize_factors=[
+def split_data(result, path, resize_factors=[
                i**0.5 for i in [1, 2, 3, 4, 9, 16]]):
     name, content = result
     idx_data = []
@@ -480,7 +480,7 @@ def create_dataset(train, val, path):
     CPU_NUM = multiprocessing.cpu_count()
     LOCK = multiprocessing.Lock()
     func = partial(split_data, path=path)
-    pool = multiprocessing.Pool(CPU_NUM,initializer=init, initargs=(LOCK,))
+    pool = multiprocessing.Pool(CPU_NUM, initializer=init, initargs=(LOCK,))
     for name, dataset in {"val": val, "train": train}.items():
         with pool:
             tuple(tqdm(
