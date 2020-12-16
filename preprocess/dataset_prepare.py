@@ -476,9 +476,7 @@ def create_dataset(train, val, path):
     dataset_file_init(path)
     CPU_NUM = multiprocessing.cpu_count()
     LOCK = multiprocessing.Lock()
-    func = partial(
-        lock=LOCK, path=path
-    )
+    func = partial(split_data,lock=LOCK, path=path)
     for name, dataset in {"val": val, "train": train}.items():
         with multiprocessing.Pool(CPU_NUM) as pool:
             tqdm(
