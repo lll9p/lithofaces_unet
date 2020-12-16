@@ -476,16 +476,16 @@ def create_dataset(train, val, path):
     dataset_file_init(path)
     CPU_NUM = multiprocessing.cpu_count()
     LOCK = multiprocessing.Lock()
-    func = partial(split_data,lock=LOCK, path=path)
+    func = partial(split_data, lock=LOCK, path=path)
     for name, dataset in {"val": val, "train": train}.items():
         with multiprocessing.Pool(CPU_NUM) as pool:
-            tqdm(
+            tuple(tqdm(
                 pool.imap_unordered(
                     func,
                     dataset.items()),
                 desc=name,
                 position=0,
-                total=len(dataset))
+                total=len(dataset)))
         # for [
             # idx_data,
             # images_data,
