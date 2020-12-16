@@ -461,15 +461,16 @@ def split_data(result, path, resize_factors=[
                     trim(
                         labels_dict,
                         masks_block)).encode("ascii"))
-    with lock:
-        dataset_file_append(path, idx_data, f"{name}/idx")
-        dataset_file_append(path, labels_data, f"{name}/labels")
-        dataset_file_append(path, images_data, f"{name}/images")
-        dataset_file_append(path, masks_data, f"{name}/masks")
-        dataset_file_append(path, edges_data, f"{name}/edges")
-        dataset_file_append(path, weight_maps_data, f"{name}/weight_maps")
+    lock.acquire()
+    dataset_file_append(path, idx_data, f"{name}/idx")
+    dataset_file_append(path, labels_data, f"{name}/labels")
+    dataset_file_append(path, images_data, f"{name}/images")
+    dataset_file_append(path, masks_data, f"{name}/masks")
+    dataset_file_append(path, edges_data, f"{name}/edges")
+    dataset_file_append(path, weight_maps_data, f"{name}/weight_maps")
+    lock.release()
     # return idx_data, images_data, masks_data, \
-        # edges_data, weight_maps_data, labels_data
+    # edges_data, weight_maps_data, labels_data
 
 
 def create_dataset(train, val, path):
