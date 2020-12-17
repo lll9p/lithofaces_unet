@@ -106,8 +106,10 @@ def dataset_file_init(path="lithofaces.h5"):
                            (0, 256, 256), np.dtype("uint8"))
             create_dataset(
                 file, f"{dataset_name}/weight_maps", (0, 256, 256), np.float)
-            create_dataset(file, f"{dataset_name}/idx", (0,), "S15")
-            create_dataset(file, f"{dataset_name}/labels", (0,), "S10000")
+            create_dataset(file, f"{dataset_name}/idx", (0,),
+                           h5py.special_dtype(vlen=str))
+            create_dataset(file, f"{dataset_name}/labels", (0,),
+                           h5py.special_dtype(vlen=str))
 
 
 def dataset_file_append(path, data, name):
