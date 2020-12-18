@@ -394,6 +394,8 @@ def get_unet_border_weight_map(
 
 def split_data(result, path, resize_factors=[
                i**0.5 for i in [1, 2, 3, 4, 9, 16]]):
+    if result is None:
+        return
     name, content = result
     idx_data = []
     images_data = []
@@ -467,33 +469,47 @@ def split_data(result, path, resize_factors=[
         edges_data, weight_maps_data, labels_data
 
 
+def grouper(iterable, n, fillvalue=None):
+    "Collect data into fixed-length chunks or blocks"
+    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
+    args = [iter(iterable)] * n
+    return zip_longest(*args, fillvalue=fillvalue)
+
+
 def create_dataset(train, val, path):
     dataset_file_init(path)
     CPU_NUM = multiprocessing.cpu_count()
     func = partial(split_data, path=path)
     for name, dataset in {"val": val, "train": train}.items():
-        pool = multiprocessing.Pool(CPU_NUM)
-        with pool:
-            results = tuple(tqdm(
-                pool.imap_unordered(
-                    func,
-                    dataset.items()),
-                desc=name,
-                position=0,
-                total=len(dataset)))
-        for [
-            idx_data,
-            images_data,
-            masks_data,
-            edges_data,
-            weight_maps_data,
-                labels_data] in results:
-            dataset_file_append(path, idx_data, f"{name}/idx")
-            dataset_file_append(path, labels_data, f"{name}/labels")
-            dataset_file_append(path, images_data, f"{name}/images")
-            dataset_file_append(path, masks_data, f"{name}/masks")
-            dataset_file_append(path, edges_data, f"{name}/edges")
-            dataset_file_append(path, weight_maps_data, f"{name}/weight_maps")
+        size = 20
+        grouped = grouper(dataset.items(), size)
+        for group in grouped:
+            pool = multiprocessing.Pool(CPU_NUM)
+            with pool:
+                results = tuple(tqdm(
+                    pool.imap_unordered(
+                        func,
+                        group),
+                    desc=name,
+                    position=0,
+                    total=size))
+            for result in results:
+                if result is None:
+                    continue
+                [
+                    idx_data,
+                    images_data,
+                    masks_data,
+                    edges_data,
+                    weight_maps_data,
+                    labels_data] = result
+                dataset_file_append(path, idx_data, f"{name}/idx")
+                dataset_file_append(path, labels_data, f"{name}/labels")
+                dataset_file_append(path, images_data, f"{name}/images")
+                dataset_file_append(path, masks_data, f"{name}/masks")
+                dataset_file_append(path, edges_data, f"{name}/edges")
+                dataset_file_append(path, weight_maps_data,
+                                    f"{name}/weight_maps")
 
 
 if __name__ == "__main__":
