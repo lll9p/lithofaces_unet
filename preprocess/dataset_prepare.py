@@ -1,4 +1,5 @@
 import json
+import itertools
 import math
 import multiprocessing
 import os
@@ -484,7 +485,6 @@ def create_dataset(train, val, path):
         size = 50
         grouped = grouper(dataset.items(), size)
         for group in grouped:
-            print("process")
             pool = multiprocessing.Pool(CPU_NUM)
             with pool:
                 results = tuple(tqdm(
@@ -494,8 +494,15 @@ def create_dataset(train, val, path):
                     desc=name,
                     position=0,
                     total=size))
+            results = tuple(filter(None, results))
             (idx_data, images_data, masks_data,
              edges_data, weight_maps_data, labels_data) = zip(*results)
+            idx_data = tuple(itertools.chain.from_iterable(idx_data))
+            images_data = tuple(itertools.chain.from_iterable(images_data))
+            masks_data = tuple(itertools.chain.from_iterable(masks_data))
+            edges_data = tuple(itertools.chain.from_iterable(edges_data))
+            weight_maps_data = tuple(itertools.chain.from_iterable(weight_maps_data))
+            labels_data = tuple(itertools.chain.from_iterable(labels_data))
             dataset_file_append(path, idx_data, f"{name}/idx")
             dataset_file_append(path, labels_data, f"{name}/labels")
             dataset_file_append(path, images_data, f"{name}/images")
@@ -503,8 +510,12 @@ def create_dataset(train, val, path):
             dataset_file_append(path, edges_data, f"{name}/edges")
             dataset_file_append(path, weight_maps_data,
                                 f"{name}/weight_maps")
-            print("done")
-
+            del idx_data
+            del images_data
+            del masks_data
+            del edges_data
+            del weight_maps_data
+            del labels_data
 
 if __name__ == "__main__":
     translations = {
