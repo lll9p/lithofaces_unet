@@ -481,9 +481,10 @@ def create_dataset(train, val, path):
     CPU_NUM = multiprocessing.cpu_count()
     func = partial(split_data, path=path)
     for name, dataset in {"val": val, "train": train}.items():
-        size = 20
+        size = 50
         grouped = grouper(dataset.items(), size)
         for group in grouped:
+            print("process")
             pool = multiprocessing.Pool(CPU_NUM)
             with pool:
                 results = tuple(tqdm(
@@ -493,23 +494,16 @@ def create_dataset(train, val, path):
                     desc=name,
                     position=0,
                     total=size))
-            for result in results:
-                if result is None:
-                    continue
-                [
-                    idx_data,
-                    images_data,
-                    masks_data,
-                    edges_data,
-                    weight_maps_data,
-                    labels_data] = result
-                dataset_file_append(path, idx_data, f"{name}/idx")
-                dataset_file_append(path, labels_data, f"{name}/labels")
-                dataset_file_append(path, images_data, f"{name}/images")
-                dataset_file_append(path, masks_data, f"{name}/masks")
-                dataset_file_append(path, edges_data, f"{name}/edges")
-                dataset_file_append(path, weight_maps_data,
-                                    f"{name}/weight_maps")
+            (idx_data, images_data, masks_data,
+             edges_data, weight_maps_data, labels_data) = zip(*results)
+            dataset_file_append(path, idx_data, f"{name}/idx")
+            dataset_file_append(path, labels_data, f"{name}/labels")
+            dataset_file_append(path, images_data, f"{name}/images")
+            dataset_file_append(path, masks_data, f"{name}/masks")
+            dataset_file_append(path, edges_data, f"{name}/edges")
+            dataset_file_append(path, weight_maps_data,
+                                f"{name}/weight_maps")
+            print("done")
 
 
 if __name__ == "__main__":
