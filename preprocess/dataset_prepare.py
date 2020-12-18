@@ -1,5 +1,5 @@
-import json
 import itertools
+import json
 import math
 import multiprocessing
 import os
@@ -501,7 +501,8 @@ def create_dataset(train, val, path):
             images_data = tuple(itertools.chain.from_iterable(images_data))
             masks_data = tuple(itertools.chain.from_iterable(masks_data))
             edges_data = tuple(itertools.chain.from_iterable(edges_data))
-            weight_maps_data = tuple(itertools.chain.from_iterable(weight_maps_data))
+            weight_maps_data = tuple(
+                itertools.chain.from_iterable(weight_maps_data))
             labels_data = tuple(itertools.chain.from_iterable(labels_data))
             dataset_file_append(path, idx_data, f"{name}/idx")
             dataset_file_append(path, labels_data, f"{name}/labels")
@@ -516,6 +517,7 @@ def create_dataset(train, val, path):
             del edges_data
             del weight_maps_data
             del labels_data
+
 
 if __name__ == "__main__":
     translations = {
