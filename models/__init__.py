@@ -3,6 +3,7 @@ from .u2net import U2NET, U2NETP
 
 
 def get_model(config):
+    print(config.num_classes)
     model = None
     if config.model == "NestedUNet":
         model = NestedUNet(

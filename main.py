@@ -47,7 +47,7 @@ class Model:
         self.train_loader = torch.utils.data.DataLoader(
             train_dataset,
             batch_size=config.batch_size,
-            pin_memory=True,
+            pin_memory=False,
             shuffle=True,
             num_workers=config.num_workers,
             drop_last=True,
@@ -55,7 +55,7 @@ class Model:
         self.val_loader = torch.utils.data.DataLoader(
             val_dataset,
             batch_size=config.batch_size,
-            pin_memory=True,
+            pin_memory=False,
             shuffle=False,
             num_workers=config.num_workers,
             drop_last=False,
@@ -170,49 +170,49 @@ class Model:
                 )
                 del image
         self.model.train()
-    @classmethod
-    def from_checkpoint(cls, checkpoint_path, model, optimizer, lr_scheduler, loss_criterion, eval_criterion, loaders,
-                        tensorboard_formatter=None, skip_train_validation=False):
-        state = utils.load_checkpoint(checkpoint_path, model, optimizer)
-        checkpoint_dir = os.path.split(checkpoint_path)[0]
-        return cls(model, optimizer, lr_scheduler,
-                   loss_criterion, eval_criterion,
-                   torch.device(state['device']),
-                   loaders, checkpoint_dir,
-                   eval_score_higher_is_better=state['eval_score_higher_is_better'],
-                   best_eval_score=state['best_eval_score'],
-                   num_iterations=state['num_iterations'],
-                   num_epoch=state['epoch'],
-                   max_num_epochs=state['max_num_epochs'],
-                   max_num_iterations=state['max_num_iterations'],
-                   validate_after_iters=state['validate_after_iters'],
-                   log_after_iters=state['log_after_iters'],
-                   validate_iters=state['validate_iters'],
-                   tensorboard_formatter=tensorboard_formatter,
-                   skip_train_validation=skip_train_validation)
-    def _save_checkpoint(self, is_best):
-        # remove `module` prefix from layer names when using `nn.DataParallel`
-        # see: https://discuss.pytorch.org/t/solved-keyerror-unexpected-key-module-encoder-embedding-weight-in-state-dict/1686/20
-        if isinstance(self.model, nn.DataParallel):
-            state_dict = self.model.module.state_dict()
-        else:
-            state_dict = self.model.state_dict()
+    # @classmethod
+    # def from_checkpoint(cls, checkpoint_path, model, optimizer, lr_scheduler, loss_criterion, eval_criterion, loaders,
+    #                     tensorboard_formatter=None, skip_train_validation=False):
+    #     state = utils.load_checkpoint(checkpoint_path, model, optimizer)
+    #     checkpoint_dir = os.path.split(checkpoint_path)[0]
+    #     return cls(model, optimizer, lr_scheduler,
+    #                loss_criterion, eval_criterion,
+    #                torch.device(state['device']),
+    #                loaders, checkpoint_dir,
+    #                eval_score_higher_is_better=state['eval_score_higher_is_better'],
+    #                best_eval_score=state['best_eval_score'],
+    #                num_iterations=state['num_iterations'],
+    #                num_epoch=state['epoch'],
+    #                max_num_epochs=state['max_num_epochs'],
+    #                max_num_iterations=state['max_num_iterations'],
+    #                validate_after_iters=state['validate_after_iters'],
+    #                log_after_iters=state['log_after_iters'],
+    #                validate_iters=state['validate_iters'],
+    #                tensorboard_formatter=tensorboard_formatter,
+    #                skip_train_validation=skip_train_validation)
+    # def _save_checkpoint(self, is_best):
+    #     # remove `module` prefix from layer names when using `nn.DataParallel`
+    #     # see: https://discuss.pytorch.org/t/solved-keyerror-unexpected-key-module-encoder-embedding-weight-in-state-dict/1686/20
+    #     if isinstance(self.model, nn.DataParallel):
+    #         state_dict = self.model.module.state_dict()
+    #     else:
+    #         state_dict = self.model.state_dict()
 
-        utils.save_checkpoint({
-            'epoch': self.num_epoch + 1,
-            'num_iterations': self.num_iterations,
-            'model_state_dict': state_dict,
-            'best_eval_score': self.best_eval_score,
-            'eval_score_higher_is_better': self.eval_score_higher_is_better,
-            'optimizer_state_dict': self.optimizer.state_dict(),
-            'device': str(self.device),
-            'max_num_epochs': self.max_num_epochs,
-            'max_num_iterations': self.max_num_iterations,
-            'validate_after_iters': self.validate_after_iters,
-            'log_after_iters': self.log_after_iters,
-            'validate_iters': self.validate_iters
-        }, is_best, checkpoint_dir=self.checkpoint_dir,
-            logger=logger)
+    #     utils.save_checkpoint({
+    #         'epoch': self.num_epoch + 1,
+    #         'num_iterations': self.num_iterations,
+    #         'model_state_dict': state_dict,
+    #         'best_eval_score': self.best_eval_score,
+    #         'eval_score_higher_is_better': self.eval_score_higher_is_better,
+    #         'optimizer_state_dict': self.optimizer.state_dict(),
+    #         'device': str(self.device),
+    #         'max_num_epochs': self.max_num_epochs,
+    #         'max_num_iterations': self.max_num_iterations,
+    #         'validate_after_iters': self.validate_after_iters,
+    #         'log_after_iters': self.log_after_iters,
+    #         'validate_iters': self.validate_iters
+    #     }, is_best, checkpoint_dir=self.checkpoint_dir,
+    #         logger=logger)
 if __name__ == "__main__":
     config = Config()
     if "KAGGLE_CONTAINER_NAME" in os.environ:
@@ -225,20 +225,20 @@ if __name__ == "__main__":
             test_path + "2010.136.1_200X130909_011.JPG"]
     else:
         config.path = "/home/lao/Data/lithofaces.h5"
-        config.batch_size = 64
+        config.batch_size = 25
         config.num_workers = 12
         test_path = "../data/segmentation/images/"
         config.test_images = [
             test_path + "116_image_130909_041.JPG",
             test_path + "122_image_201023_002.JPG"]
-    config.model = "UNet"
+    config.model = "NestedUNet"
     config.loss = "BCEPixelWiseDiceLoss"
     config.deep_supervision = False
     config.loss_alpha = 1.0
     config.loss_beta = 1.0
-    config.loss_gamme = 250.0
+    config.loss_gamma = 250.0
     config.ignore_labels = ["C3A"]
-    config.epochs = 2
+    config.epochs = 200
     # weight should be none when use diceloss
     config.weight = None
     # config.learning_rate = 0.01

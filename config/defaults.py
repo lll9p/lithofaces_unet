@@ -12,7 +12,7 @@ defaults = dict(
     input_height=224,
     input_wide=224,
     device="cuda",
-    labels=["Alite", "Blite", "C3A", "Pore", "edges"],
+    labels=["Alite", "Blite", "C3A", "Pore"],
     learning_rate=0.001,
     loss="BCEDiceLoss",
     loss_alpha=1.0,
@@ -26,14 +26,15 @@ defaults = dict(
         "Pore": 0.03479914428980516,
         "edges": 0.22213798002852075,
     },
+    train_on="masks", #masks or edges
     mask_ext=".png",
     milestones="1,2",
     min_learning_rate=1e-05,
-    model="NestedUNet",
+    model="UNet",
     momentum=0.9,
     name=None,
-    learning_rate_current = 0.001,
-    epoch_current = 0,
+    learning_rate_current=0.001,
+    epoch_current=0,
     nesterov=False,
     num_classes=5,
     num_workers=4,
@@ -42,5 +43,5 @@ defaults = dict(
     patience=2,
     scheduler="CosineAnnealingLR",
     weight_decay=0.0001,
-    log_file = "/kaggle/working/lithofaces-unet/networks/"
+    log_file="/kaggle/working/lithofaces-unet/networks/"
 )

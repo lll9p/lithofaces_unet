@@ -517,6 +517,7 @@ def create_dataset(train, val, path):
             del edges_data
             del weight_maps_data
             del labels_data
+            del results
 
 
 if __name__ == "__main__":
@@ -559,3 +560,5 @@ if __name__ == "__main__":
 
     print("Generating hdf5 file from Datasets.")
     create_dataset(result_train, result_val, path=dataset_path)
+    del result_train
+    del result_val

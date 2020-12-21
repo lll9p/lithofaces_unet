@@ -27,7 +27,7 @@ class VGGBlock(nn.Module):
 
 class UNet(nn.Module):
     def __init__(self, num_classes, input_channels=3, **kwargs):
-        super().__init__()
+        super(UNet,self).__init__()
 
         # n1 = 32
         n1 = 64

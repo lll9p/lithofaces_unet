@@ -244,13 +244,13 @@ def expand_as_one_hot(input, labels, ignore_labels=None):
     assert input.dim() == 3
     input = input.clone()
     num_classes = len(labels) - len(ignore_labels)
-    labels_index = list(range(1, len(labels) + 1))
-    ignore_labels_index = sorted(map(lambda i: labels.index(i) + 1, ignore_labels))
-    for i in ignore_labels_index:
-        input[input == i] = 0
-        labels_index.pop(labels_index.index(i))
-    for i, l in enumerate(labels_index, start=1):
-        input[input == l] = i
+    # labels_index = list(range(1, len(labels) + 1))
+    # ignore_labels_index = sorted(map(lambda i: labels.index(i) + 1, ignore_labels))
+    # for i in ignore_labels_index:
+    #     input[input == i] = 0
+    #     labels_index.pop(labels_index.index(i))
+    # for i, l in enumerate(labels_index, start=1):
+    #     input[input == l] = i
     # expand the input tensor to Nx1xHxW before scattering
     input = input.unsqueeze(1)
     # create result tensor shape (NxCxHxW)
