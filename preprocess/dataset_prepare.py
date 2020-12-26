@@ -82,9 +82,9 @@ def dataset_file_init(path="lithofaces.h5"):
         create_dataset(file, "images", (0, 256, 256, 3), np.dtype("uint8"))
         create_dataset(file, "masks", (0, 256, 256), np.dtype("uint8"))
         create_dataset(file, "edges", (0, 256, 256), np.dtype("uint8"))
-        create_dataset(file, "weight_maps", (0, 256, 256), np.float)
-        create_dataset(file, "shape_distance", (0, 256, 256), np.float)
-        create_dataset(file, "neighbor_distance", (0, 256, 256), np.float)
+        # create_dataset(file, "weight_maps", (0, 256, 256), np.float)
+        # create_dataset(file, "shape_distance", (0, 256, 256), np.float)
+        # create_dataset(file, "neighbor_distance", (0, 256, 256), np.float)
         create_dataset(file, "idx", (0,), h5py.special_dtype(vlen=str))
         create_dataset(file, "labels", (0,), h5py.special_dtype(vlen=str))
 
@@ -399,9 +399,9 @@ def split_image(result, resize_factors=[
     images_data = []
     masks_data = []
     edges_data = []
-    weight_maps_data = []
-    shape_distance_data = []
-    neighbor_distance_data = []
+    # weight_maps_data = []
+    # shape_distance_data = []
+    # neighbor_distance_data = []
     labels_data = []
     window = window
 
@@ -432,10 +432,10 @@ def split_image(result, resize_factors=[
             image_block = image_new[y:y_stop, x:x_stop, ...]
             masks_block = masks_new[y:y_stop, x:x_stop]
             edges_block = edges_new[y:y_stop, x:x_stop]
-            # weight map should calculate before padding
-            weight_map_block = masks_block.copy()
-            weight_map_block[edges_block.astype(bool)] = 0
-            border_wm = get_unet_border_weight_map(weight_map_block)
+            # # weight map should calculate before padding
+            # weight_map_block = masks_block.copy()
+            # weight_map_block[edges_block.astype(bool)] = 0
+            # border_wm = get_unet_border_weight_map(weight_map_block)
             # distances should calculate before padding
             shape_distance_block = get_shape_distance(masks_block)
             neighbor_distance_block = get_neighbor_distance(masks_block)
@@ -445,7 +445,7 @@ def split_image(result, resize_factors=[
                 image_block = pad(image_block, pady, padx)
                 masks_block = pad(masks_block, pady, padx)
                 edges_block = pad(edges_block, pady, padx)
-                border_wm = pad(border_wm, pady, padx)
+                # border_wm = pad(border_wm, pady, padx)
                 shape_distance_block = pad(shape_distance_block, pady, padx)
                 neighbor_distance_block = pad(
                     neighbor_distance_block, pady, padx)
@@ -453,9 +453,9 @@ def split_image(result, resize_factors=[
             images_data.append(image_block)
             masks_data.append(masks_block)
             edges_data.append(edges_block)
-            weight_maps_data.append(border_wm)
-            shape_distance_data.append(shape_distance_block)
-            neighbor_distance_data.append(neighbor_distance_block)
+            # weight_maps_data.append(border_wm)
+            # shape_distance_data.append(shape_distance_block)
+            # neighbor_distance_data.append(neighbor_distance_block)
             labels_data.append(
                 json.dumps(
                     trim(
@@ -467,16 +467,16 @@ def split_image(result, resize_factors=[
             images_data,
             masks_data,
             edges_data,
-            weight_maps_data,
-            shape_distance_data,
-            neighbor_distance_data):
+            # weight_maps_data,
+            # shape_distance_data,
+            # neighbor_distance_data
+    ):
         assert len(data) == data_len
         for element in data:
             assert element.shape[0] == window
             assert element.shape[1] == window
     return idx_data, images_data, masks_data, \
-        edges_data, weight_maps_data, shape_distance_data, \
-        neighbor_distance_data, labels_data
+        edges_data, labels_data
 
 
 def grouper(iterable, n, fillvalue=None):
@@ -496,9 +496,7 @@ def create_dataset(results, path):
         pool = multiprocessing.Pool(CPU_NUM)
         with pool:
             results = tuple(tqdm(
-                pool.imap_unordered(
-                    func,
-                    group),
+                pool.imap_unordered(func, group),
                 desc="adding to h5file",
                 position=0,
                 total=size))
@@ -510,28 +508,28 @@ def create_dataset(results, path):
         images_data = tuple(itertools.chain.from_iterable(images_data))
         masks_data = tuple(itertools.chain.from_iterable(masks_data))
         edges_data = tuple(itertools.chain.from_iterable(edges_data))
-        weight_maps_data = tuple(
-            itertools.chain.from_iterable(weight_maps_data))
-        shape_distance_data = tuple(
-            itertools.chain.from_iterable(shape_distance_data))
-        neighbor_distance_data = tuple(
-            itertools.chain.from_iterable(neighbor_distance_data))
+        # weight_maps_data = tuple(
+        # itertools.chain.from_iterable(weight_maps_data))
+        # shape_distance_data = tuple(
+        # itertools.chain.from_iterable(shape_distance_data))
+        # neighbor_distance_data = tuple(
+        # itertools.chain.from_iterable(neighbor_distance_data))
         labels_data = tuple(itertools.chain.from_iterable(labels_data))
         dataset_file_append(path, idx_data, "idx")
         dataset_file_append(path, labels_data, "labels")
         dataset_file_append(path, images_data, "images")
         dataset_file_append(path, masks_data, "masks")
         dataset_file_append(path, edges_data, "edges")
-        dataset_file_append(path, weight_maps_data, "weight_maps")
-        dataset_file_append(path, shape_distance_data, "shape_distance")
-        dataset_file_append(path, neighbor_distance_data, "neighbor_distance")
+        # dataset_file_append(path, weight_maps_data, "weight_maps")
+        # dataset_file_append(path, shape_distance_data, "shape_distance")
+        # dataset_file_append(path, neighbor_distance_data, "neighbor_distance")
         del idx_data
         del images_data
         del masks_data
         del edges_data
-        del weight_maps_data
-        del shape_distance_data
-        del neighbor_distance_data
+        # del weight_maps_data
+        # del shape_distance_data
+        # del neighbor_distance_data
         del labels_data
         del results
 
@@ -570,9 +568,6 @@ if __name__ == "__main__":
         image_ranges=image_ranges,
         input_path=input_path)
     print("Splitting to train val.")
-    # result_train, result_val = dataset_split(results, val_blocks)
-    # del results
-    # del val_blocks
 
     print("Generating hdf5 file from Datasets.")
     create_dataset(results, path=dataset_path)
