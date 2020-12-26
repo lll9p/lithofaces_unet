@@ -471,8 +471,9 @@ def split_image(result, resize_factors=[
             shape_distance_data,
             neighbor_distance_data):
         assert len(data) == data_len
-        for num in data.shape:
-            assert num == window
+        for element in data:
+            assert element.shape[0] == window
+            assert element.shape[1] == window
     return idx_data, images_data, masks_data, \
         edges_data, weight_maps_data, shape_distance_data, \
         neighbor_distance_data, labels_data
