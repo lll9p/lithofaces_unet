@@ -502,8 +502,8 @@ def create_dataset(results, path):
                 total=size))
         results = tuple(filter(None, results))
         (idx_data, images_data, masks_data,
-         edges_data, weight_maps_data, shape_distance_data,
-         neighbor_distance_data, labels_data) = zip(*results)
+         edges_data, labels_data) = zip(*results)
+        #  weight_maps_data,shape_distance_data, neighbor_distance_data
         idx_data = tuple(itertools.chain.from_iterable(idx_data))
         images_data = tuple(itertools.chain.from_iterable(images_data))
         masks_data = tuple(itertools.chain.from_iterable(masks_data))
