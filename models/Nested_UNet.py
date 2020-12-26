@@ -29,8 +29,8 @@ class UNet(nn.Module):
     def __init__(self, num_classes, input_channels=3, **kwargs):
         super(UNet,self).__init__()
 
-        # n1 = 32
-        n1 = 64
+        # n1 = 32 if don't have large gpu memory ,change back to 32 or less
+        n1 = 32
         nb_filter = [n1 * 1, n1 * 2, n1 * 4, n1 * 8, n1 * 16]
         self.pool = nn.MaxPool2d(2, 2)
         self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
@@ -67,7 +67,7 @@ class UNet(nn.Module):
 class NestedUNet(nn.Module):
     def __init__(self, num_classes, input_channels=3, deep_supervision=False, **kwargs):
         super(NestedUNet, self).__init__()
-        # n1 = 32
+        # n1 = 32 if don't have large gpu memory ,change back to 32 or less
         n1 = 64
         nb_filter = [n1 * 1, n1 * 2, n1 * 4, n1 * 8, n1 * 16]
 

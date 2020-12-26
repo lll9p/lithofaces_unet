@@ -12,7 +12,7 @@ import h5py
 import numpy as np
 import scipy
 from skimage import morphology
-# from sklearn.model_selection import KFold, train_test_split
+from sklearn.model_selection import train_test_split
 from tqdm.autonotebook import tqdm
 
 
@@ -36,10 +36,12 @@ def split(shape, ywindow=256, xwindow=256):
             yield block
 
 
-def get_edge(mask, kernel=None):
-    if kernel is None:
-        kernel = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]])
+kernel = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]])
+
+
+def fix_edge(mask, kernel=kernel):
     shape_classes = np.unique(mask)
+    mask_new = np.zeros(mask.shape, dtype=np.uint16)
     touched = np.zeros(mask.shape, dtype=np.uint16)
     edges = np.zeros(mask.shape, dtype=np.uint16)
     for shape_id in shape_classes:
@@ -61,13 +63,30 @@ def get_edge(mask, kernel=None):
             if mask_pad[y - 1: y + 2, x - 1: x + 2].sum() != 0:
                 shape_[y, x] = 0
                 touched[y, x] = 1
+        mask_new[shape_.astype(bool)] = shape_id
         edges[shape_edge.astype(bool)] = 1
     edges[touched.astype(bool)] = 1
-    return edges
+    return mask_new, edges
+
+
+def get_val_blocks(images):
+    image_blocks = list()
+    for image in images:
+        image_id = image.attrib["id"]
+        y, x = int(image.attrib["height"]), int(image.attrib["width"])
+        blocks = split((y, x), 512, 512)
+        for idx, block in enumerate(blocks):
+            image_blocks.append(f"{image_id}-{idx}")
+    train, val = train_test_split(image_blocks, test_size=0.3, random_state=42)
+    val_ = dict()
+    for val_block in val:
+        image_id, block_id = val_block.split("-")
+        val_.setdefault(image_id, [])
+        val_[image_id].append(int(block_id))
+    return val_
 
 
 def dataset_file_init(path="lithofaces.h5"):
-    # create dataset for every id and every image
     def create_dataset(file, name, shape, dtype):
         file.create_dataset(
             name,
@@ -79,14 +98,19 @@ def dataset_file_init(path="lithofaces.h5"):
             maxshape=(None,) + shape[1:]
         )
     with h5py.File(path, "w", libver="latest", swmr=True) as file:
-        create_dataset(file, "images", (0, 256, 256, 3), np.dtype("uint8"))
-        create_dataset(file, "masks", (0, 256, 256), np.dtype("uint8"))
-        create_dataset(file, "edges", (0, 256, 256), np.dtype("uint8"))
-        create_dataset(file, "weight_maps", (0, 256, 256), np.float)
-        create_dataset(file, "shape_distance", (0, 256, 256), np.float)
-        create_dataset(file, "neighbor_distance", (0, 256, 256), np.float)
-        create_dataset(file, "idx", (0,), h5py.special_dtype(vlen=str))
-        create_dataset(file, "labels", (0,), h5py.special_dtype(vlen=str))
+        for dataset_name in ["train", "val"]:
+            create_dataset(file, f"{dataset_name}/images",
+                           (0, 256, 256, 3), np.dtype("uint8"))
+            create_dataset(file, f"{dataset_name}/masks",
+                           (0, 256, 256), np.dtype("uint8"))
+            create_dataset(file, f"{dataset_name}/edges",
+                           (0, 256, 256), np.dtype("uint8"))
+            create_dataset(
+                file, f"{dataset_name}/weight_maps", (0, 256, 256), np.float)
+            create_dataset(file, f"{dataset_name}/idx", (0,),
+                           h5py.special_dtype(vlen=str))
+            create_dataset(file, f"{dataset_name}/labels", (0,),
+                           h5py.special_dtype(vlen=str))
 
 
 def dataset_file_append(path, data, name):
@@ -102,7 +126,7 @@ def process_image(
         translations=None,
         label_map=None):
     """
-    处理一张图片节点，生成contour
+    处理一张图片节点，生成contour,并把图片padding成256的偶数倍
     """
     labels = label_map.keys()
     # get image id
@@ -116,6 +140,13 @@ def process_image(
     size = image.shape[:2]
     mask = np.zeros(size, dtype=np.uint16)
     edges = np.zeros(size, dtype=np.uint16)
+    should_pad = False
+    if size[0] == 768:
+        should_pad = True
+        image = np.pad(image, ((256, 0), (0, 0), (0, 0)), mode="reflect")
+        mask = np.pad(mask, ((256, 0), (0, 0)), mode="reflect")
+        edges = np.pad(edges, ((256, 0), (0, 0)), mode="reflect")
+
     label_dict = {label: [] for label in labels}
     label_num = 1
     # 0 is background
@@ -132,21 +163,25 @@ def process_image(
             # blank image
             [shape_points],  # contours
             -1,  # contour id
-            1,  # contour color OR [255,255,255]
+            label_num,  # contour color OR [255,255,255]
             -1,  # contour thickness -1 means fill
         )
-        # get shapes overlapping
-        overlapping = ((mask > 0).astype(np.uint16) +
-                       (shape > 0).astype(np.uint16)) > 1
-        edges[overlapping] = 1
-        mask[shape.astype(bool)] = label_num
+        if should_pad:
+            # pad 1024*768 image to 1024*1024
+            # easy to split train test sets
+            shape = np.pad(shape, ((256, 0), (0, 0)), mode="reflect")
         # 保存shape的类别指示，由于是uint16，可容纳65536个类
         label_dict[label].append(label_num)
         label_num += 1
-    edges_ = get_edge(mask)
+        # Process shapes overlapping
+        overlapping = ((mask > 0).astype(np.uint16) +
+                       (shape > 0).astype(np.uint16)) > 1
+        mask[overlapping] = 0
+        shape[overlapping] = 0
+        edges[overlapping] = 1
+        mask = mask + shape
+    mask, edges_ = fix_edge(mask)
     edges[edges_.astype(bool)] = 1
-    # if you want to remove edges:
-    # mask[edges.astype(bool)] = 0
     assert mask.shape == image.shape[:2]
     assert edges.shape == image.shape[:2]
 
@@ -193,7 +228,8 @@ def process_images(
         results_dict[image_id]["masks"] = result[2]
         results_dict[image_id]["edges"] = result[3]
         results_dict[image_id]["dict"] = result[4]
-    return results_dict
+    val_blocks = get_val_blocks(images)
+    return results_dict, val_blocks
 
 
 def trim(label_dict, masks):
@@ -208,8 +244,44 @@ def trim(label_dict, masks):
     return label_dict_new
 
 
+def dataset_split(results, val_blocks):
+    result_train = dict()
+    result_val = dict()
+    for image_id, result in results.items():
+        if image_id not in val_blocks:
+            result_train[f"{image_id}F"] = result
+    for image_id, block_ids in val_blocks.items():
+        result = results[image_id]
+        size = result["image"].shape[:2]
+        blocks = split(size, 512, 512)
+        for idx, (pad_flag, [y, y_stop], [x, x_stop]) in enumerate(blocks):
+            if idx not in block_ids:
+                key = f"{image_id}S-{idx}"
+                result_train.setdefault(key, dict())
+                result_train[key]["image"] = result["image"][
+                    y: y_stop, x: x_stop, ...]
+                result_train[key]["masks"] = result["masks"][
+                    y: y_stop, x: x_stop, ...]
+                result_train[key]["edges"] = result["edges"][
+                    y: y_stop, x: x_stop, ...]
+                result_train[key]["dict"] = trim(
+                    result["dict"], result_train[key]["masks"])
+            else:
+                key = f"{image_id}V-{idx}"
+                result_val.setdefault(key, dict())
+                result_val[key]["image"] = result["image"][
+                    y: y_stop, x: x_stop, ...]
+                result_val[key]["masks"] = result["masks"][
+                    y: y_stop, x: x_stop, ...]
+                result_val[key]["edges"] = result["edges"][
+                    y: y_stop, x: x_stop, ...]
+                result_val[key]["dict"] = trim(
+                    result["dict"], result_val[key]["masks"])
+    return result_train, result_val
+# class balance weight map
+
+
 def balancewm(mask):
-    # class balance weight map
     # from 0-1
     wc = np.empty(mask.shape)
     classes = np.unique(mask)
@@ -218,56 +290,6 @@ def balancewm(mask):
     for i in range(len(classes)):
         wc[mask == classes[i]] = freq[i]
     return wc
-
-
-def get_shape_distance(mask):
-    # calculate shape distance as described in <Cell segmentation and tracking
-    # using CNN-based distancepredictions and a graph-based matching strategy>
-    shape_distance = np.zeros_like(mask, dtype=np.float64)
-    for shape_id in np.unique(mask):
-        if shape_id == 0:
-            # background
-            continue
-        indice = mask == shape_id
-        shape_distance_ = scipy.ndimage.distance_transform_edt(indice)
-        shape_distance_ = shape_distance_ / shape_distance_.max()
-        shape_distance += shape_distance_
-    return shape_distance
-
-
-def get_neighbor_distance(mask):
-    # calculate shape distance as described in <Cell segmentation and tracking
-    # using CNN-based distancepredictions and a graph-based matching strategy>
-    neighbor_distance = np.zeros_like(mask, dtype=np.float64)
-    mask_binary = mask.astype(bool).astype(mask.dtype)
-    for shape_id in np.unique(mask):
-        if shape_id == 0:
-            # background
-            continue
-        indice = mask == shape_id
-        indice_ = mask != shape_id
-        mask_without_this_shape = mask_binary.copy()
-        mask_without_this_shape[indice] = 0
-        invert_dt = scipy.ndimage.distance_transform_edt(
-            1 - mask_without_this_shape)
-        # cutting
-        invert_dt[indice_] = 0.0
-        # normalize
-        maxi = invert_dt.max()
-        if maxi != 0.0:
-            invert_dt = invert_dt / maxi
-        # invert
-        invert_dt = 1.0 - invert_dt
-        # cutting again
-        invert_dt[indice_] = 0.0
-        # normalize again
-        maxi = invert_dt.max()
-        if maxi != 0.0:
-            invert_dt = invert_dt / maxi
-        neighbor_distance += invert_dt
-    neighbor_distance = morphology.closing(neighbor_distance,
-                                           morphology.disk(3))
-    return np.power(neighbor_distance, 3)
 
 
 def get_unet_border_weight_map(
@@ -371,42 +393,28 @@ def get_unet_border_weight_map(
     return border_loss_map + inner + wc
 
 
-def split_image(result, resize_factors=[
-        i**0.5 for i in [1, 2, 3, 4]], window=256):
-    def pad(block, pady, padx):
-        # to center image or mask
-        pady1 = pady // 2
-        pady2 = pady - pady1
-        padx1 = padx // 2
-        padx2 = padx - padx1
-        #
-        if len(block.shape) == 3:
-            shape = ((pady1, pady2), (padx1, padx2), (0, 0))
-        else:
-            shape = ((pady1, pady2), (padx1, padx2))
-        return np.pad(
-            block, shape, mode="constant", constant_values=0)
+def split_data(result, path, resize_factors=[
+               i**0.5 for i in [1, 2, 3, 4, 9, 16]]):
     if result is None:
         return
-    image_id, content = result
-    # idx format: image_id-resize_id-block_id
-    image = content["image"]
-    masks = content["masks"]
-    edges = content["edges"]
-    labels_dict = content["dict"]
-    size = content["image"].shape[:2]
+    name, content = result
     idx_data = []
     images_data = []
     masks_data = []
     edges_data = []
-    weight_maps_data = []
-    shape_distance_data = []
-    neighbor_distance_data = []
     labels_data = []
-    window = window
+    weight_maps_data = []
+    window = 256
 
-    for resize_id, factor in enumerate(resize_factors):
-        size_new = (math.ceil(size[0] / factor), math.ceil(size[1] / factor))
+    def pad(size, window=256):
+        return math.ceil(size / window) * window
+    for factor in resize_factors:
+        image = content["image"]
+        masks = content["masks"]
+        edges = content["edges"]
+        labels_dict = content["dict"]
+        size = content["image"].shape[:2]
+        size_new = (int(size[0] / factor), int(size[1] / factor))
         if factor == 1:
             image_new = image
             masks_new = masks
@@ -420,62 +428,46 @@ def split_image(result, resize_factors=[
                 shape = cv2.resize(shape_tmp.astype(np.uint16),
                                    (size_new[1], size_new[0]),
                                    cv2.INTER_NEAREST)
-                masks_new[shape.astype(bool)] = i
-            # after resize mask,get edges of touched
-            touched = get_edge(masks_new)
+                shape = shape > 0
+                masks_new[shape] = i
+            masks_new, touched = fix_edge(masks_new)
             edges_new = cv2.resize(edges.astype(np.uint16),
                                    (size_new[1], size_new[0]),
                                    cv2.INTER_NEAREST)
             edges_new = ((edges_new + touched) > 0).astype(np.uint16)
-        blocks = split(size_new, ywindow=window, xwindow=window)
-        for idx, (should_pad, [y, y_stop], [x, x_stop]) in enumerate(blocks):
+            pady = pad(size_new[0], window) - size_new[0]
+            padx = pad(size_new[1], window) - size_new[1]
+            image_new = np.pad(
+                image_new,
+                ((pady, 0), (padx, 0), (0, 0)),
+                mode="reflect")
+            masks_new = np.pad(
+                masks_new,
+                ((pady, 0), (padx, 0)),
+                mode="reflect")
+            edges_new = np.pad(
+                edges_new,
+                ((pady, 0), (padx, 0)),
+                mode="reflect")
+        size_new_pad = image_new.shape[:2]
+        blocks = split(size_new_pad, ywindow=window, xwindow=window)
+        for idx, (_, [y, y_stop], [x, x_stop]) in enumerate(blocks):
             image_block = image_new[y:y_stop, x:x_stop, ...]
             masks_block = masks_new[y:y_stop, x:x_stop]
             edges_block = edges_new[y:y_stop, x:x_stop]
-            # weight map should calculate before padding
-            weight_map_block = masks_block.copy()
-            weight_map_block[edges_block.astype(bool)] = 0
-            border_wm = get_unet_border_weight_map(weight_map_block)
-            # distances should calculate before padding
-            shape_distance_block = get_shape_distance(masks_block)
-            neighbor_distance_block = get_neighbor_distance(masks_block)
-            if should_pad:
-                pady = window - (y_stop - y)
-                padx = window - (x_stop - x)
-                image_block = pad(image_block, pady, padx)
-                masks_block = pad(masks_block, pady, padx)
-                edges_block = pad(edges_block, pady, padx)
-                border_wm = pad(border_wm, pady, padx)
-                shape_distance_block = pad(shape_distance_block, pady, padx)
-                neighbor_distance_block = pad(
-                    neighbor_distance_block, pady, padx)
-            idx_data.append(f"{image_id}-{resize_id}-{idx}".encode("ascii"))
+            border_wm = get_unet_border_weight_map(masks_block)
+            idx_data.append(f"{name}-{factor:.1f}-{idx}".encode("ascii"))
             images_data.append(image_block)
             masks_data.append(masks_block)
             edges_data.append(edges_block)
             weight_maps_data.append(border_wm)
-            shape_distance_data.append(shape_distance_block)
-            neighbor_distance_data.append(neighbor_distance_block)
             labels_data.append(
                 json.dumps(
                     trim(
                         labels_dict,
                         masks_block)).encode("ascii"))
-    data_len = len(idx_data)
-    assert len(labels_data) == data_len
-    for data in (
-            images_data,
-            masks_data,
-            edges_data,
-            weight_maps_data,
-            shape_distance_data,
-            neighbor_distance_data):
-        assert len(data) == data_len
-        for num in data.shape:
-            assert num == window
     return idx_data, images_data, masks_data, \
-        edges_data, weight_maps_data, shape_distance_data, \
-        neighbor_distance_data, labels_data
+        edges_data, weight_maps_data, labels_data
 
 
 def grouper(iterable, n, fillvalue=None):
@@ -485,54 +477,47 @@ def grouper(iterable, n, fillvalue=None):
     return zip_longest(*args, fillvalue=fillvalue)
 
 
-def create_dataset(results, path):
+def create_dataset(train, val, path):
     dataset_file_init(path)
     CPU_NUM = multiprocessing.cpu_count()
-    func = split_image
-    size = 10
-    grouped = grouper(results.items(), size)
-    for group in grouped:
-        pool = multiprocessing.Pool(CPU_NUM)
-        with pool:
-            results = tuple(tqdm(
-                pool.imap_unordered(
-                    func,
-                    group),
-                desc="adding to h5file",
-                position=0,
-                total=size))
-        results = tuple(filter(None, results))
-        (idx_data, images_data, masks_data,
-         edges_data, weight_maps_data, shape_distance_data,
-         neighbor_distance_data, labels_data) = zip(*results)
-        idx_data = tuple(itertools.chain.from_iterable(idx_data))
-        images_data = tuple(itertools.chain.from_iterable(images_data))
-        masks_data = tuple(itertools.chain.from_iterable(masks_data))
-        edges_data = tuple(itertools.chain.from_iterable(edges_data))
-        weight_maps_data = tuple(
-            itertools.chain.from_iterable(weight_maps_data))
-        shape_distance_data = tuple(
-            itertools.chain.from_iterable(shape_distance_data))
-        neighbor_distance_data = tuple(
-            itertools.chain.from_iterable(neighbor_distance_data))
-        labels_data = tuple(itertools.chain.from_iterable(labels_data))
-        dataset_file_append(path, idx_data, "idx")
-        dataset_file_append(path, labels_data, "labels")
-        dataset_file_append(path, images_data, "images")
-        dataset_file_append(path, masks_data, "masks")
-        dataset_file_append(path, edges_data, "edges")
-        dataset_file_append(path, weight_maps_data, "weight_maps")
-        dataset_file_append(path, shape_distance_data, "shape_distance")
-        dataset_file_append(path, neighbor_distance_data, "neighbor_distance")
-        del idx_data
-        del images_data
-        del masks_data
-        del edges_data
-        del weight_maps_data
-        del shape_distance_data
-        del neighbor_distance_data
-        del labels_data
-        del results
+    func = partial(split_data, path=path)
+    for name, dataset in {"val": val, "train": train}.items():
+        size = 50
+        grouped = grouper(dataset.items(), size)
+        for group in grouped:
+            pool = multiprocessing.Pool(CPU_NUM)
+            with pool:
+                results = tuple(tqdm(
+                    pool.imap_unordered(
+                        func,
+                        group),
+                    desc=name,
+                    position=0,
+                    total=size))
+            results = tuple(filter(None, results))
+            (idx_data, images_data, masks_data,
+             edges_data, weight_maps_data, labels_data) = zip(*results)
+            idx_data = tuple(itertools.chain.from_iterable(idx_data))
+            images_data = tuple(itertools.chain.from_iterable(images_data))
+            masks_data = tuple(itertools.chain.from_iterable(masks_data))
+            edges_data = tuple(itertools.chain.from_iterable(edges_data))
+            weight_maps_data = tuple(
+                itertools.chain.from_iterable(weight_maps_data))
+            labels_data = tuple(itertools.chain.from_iterable(labels_data))
+            dataset_file_append(path, idx_data, f"{name}/idx")
+            dataset_file_append(path, labels_data, f"{name}/labels")
+            dataset_file_append(path, images_data, f"{name}/images")
+            dataset_file_append(path, masks_data, f"{name}/masks")
+            dataset_file_append(path, edges_data, f"{name}/edges")
+            dataset_file_append(path, weight_maps_data,
+                                f"{name}/weight_maps")
+            del idx_data
+            del images_data
+            del masks_data
+            del edges_data
+            del weight_maps_data
+            del labels_data
+            del results
 
 
 if __name__ == "__main__":
@@ -562,16 +547,18 @@ if __name__ == "__main__":
     label_map = {label: i for i, label in enumerate(select_classes, start=1)}
 
     print("Original dataset generating from annotations.xml.")
-    results = process_images(
+    results, val_blocks = process_images(
         annotations=annotations,
         translations=translations,
         label_map=label_map,
         image_ranges=image_ranges,
         input_path=input_path)
     print("Splitting to train val.")
-    # result_train, result_val = dataset_split(results, val_blocks)
-    # del results
-    # del val_blocks
+    result_train, result_val = dataset_split(results, val_blocks)
+    del results
+    del val_blocks
 
     print("Generating hdf5 file from Datasets.")
-    create_dataset(results, path=dataset_path)
+    create_dataset(result_train, result_val, path=dataset_path)
+    del result_train
+    del result_val

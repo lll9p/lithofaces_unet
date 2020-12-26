@@ -12,7 +12,12 @@ class Config(dict):
 
     @staticmethod
     def check_classes(config):
-        labels_length = len(config["labels"])-len(config["ignore_labels"])+1
+        diff = len(config["labels"])-len(config["ignore_labels"])
+        if diff == 0:
+            # on edge mode
+            labels_length = diff+2
+        elif diff>0:
+            labels_length = diff+1
         # including background
         if config["num_classes"] != labels_length:
             config["num_classes"] = labels_length

@@ -47,7 +47,7 @@ class Model:
         self.train_loader = torch.utils.data.DataLoader(
             train_dataset,
             batch_size=config.batch_size,
-            pin_memory=False,
+            pin_memory=True,
             shuffle=True,
             num_workers=config.num_workers,
             drop_last=True,
@@ -55,7 +55,7 @@ class Model:
         self.val_loader = torch.utils.data.DataLoader(
             val_dataset,
             batch_size=config.batch_size,
-            pin_memory=False,
+            pin_memory=True,
             shuffle=False,
             num_workers=config.num_workers,
             drop_last=False,
@@ -126,7 +126,7 @@ class Model:
             self.validate_epoch(self.val_loader)
             # test images and save
             if predict:
-                self.test(epoch)
+                self.predict(epoch)
             if config.scheduler == "CosineAnnealingLR":
                 self.scheduler.step()
                 config.learning_rate_current = self.scheduler.get_last_lr()[0]
@@ -225,24 +225,26 @@ if __name__ == "__main__":
             test_path + "2010.136.1_200X130909_011.JPG"]
     else:
         config.path = "/home/lao/Data/lithofaces.h5"
-        config.batch_size = 25
+        config.batch_size = 64
         config.num_workers = 12
         test_path = "../data/segmentation/images/"
         config.test_images = [
             test_path + "116_image_130909_041.JPG",
             test_path + "122_image_201023_002.JPG"]
-    config.model = "NestedUNet"
-    config.loss = "BCEPixelWiseDiceLoss"
+    config.model = "UNet"
+    config.loss = "BCEDiceLoss"
     config.deep_supervision = False
     config.loss_alpha = 1.0
     config.loss_beta = 1.0
     config.loss_gamma = 250.0
-    config.ignore_labels = ["C3A"]
+    # if train on edges ignore all labels
+    config.ignore_labels = ["Alite", "Blite", "C3A", "Pore"]
     config.epochs = 200
     # weight should be none when use diceloss
     config.weight = None
     # config.learning_rate = 0.01
     Config.check_classes(config)
+    config.train_on = "edges"
     model = Model(config=config)
     print("=>Setting Dataset.")
     model.setup()
@@ -251,5 +253,5 @@ if __name__ == "__main__":
         model.train_loader,
         model.val_loader,
         progress=True,config=config)
-    model.train()
+    model.train(predict=True)
     Logger.close()
