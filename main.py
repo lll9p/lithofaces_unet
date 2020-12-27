@@ -24,6 +24,9 @@ class Model:
         self.config = config
 
     def setup(self):
+        # reset Dataset
+        Dataset.full_idx = None
+        Dataset.dataset = None
         config = self.config
         self.root = pathlib.Path(config.path)
         if config.name is None:

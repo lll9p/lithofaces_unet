@@ -147,28 +147,29 @@ class Dataset(data.Dataset):
 
     def transforms(self, image, mask, mask2=None):
         image = transforms.functional.to_pil_image(image)
-        mask = transforms.functional.to_pil_image(mask)
+        # mask = transforms.functional.to_pil_image(mask)
         # RandomCrop
         # i, j, h, w = transforms.RandomCrop.get_params(
         # image, output_size=(224, 224))
         # image = transforms.functional.crop(image, i, j, h, w)
         # mask = transforms.functional.crop(mask, i, j, h, w)
+        # weight_map = weight_map[..., i : i + h, j : j + w]
         if random.random() > 0.5:
             image = transforms.functional.hflip(image)
-            mask = transforms.functional.hflip(mask)
+            mask = np.fliplr(mask)
             if mask2 is not None:
-                mask2 = transforms.functional.hflip(mask2)
+                mask2 = np.fliplr(mask2)
         if random.random() > 0.5:
             image = transforms.functional.vflip(image)
-            mask = transforms.functional.vflip(mask)
+            mask = np.flipud(mask)
             if mask2 is not None:
-                mask2 = transforms.functional.vflip(mask2)
+                mask2 = np.flipud(mask2)
         # Random rotate90
         if random.random() > 0.5:
             image = transforms.functional.rotate(image, 90)
-            mask = transforms.functional.rotate(mask, 90)
+            mask = np.rot90(mask)
             if mask2 is not None:
-                mask2 = transforms.functional.rotate(mask2, 90)
+                mask2 = np.rot90(mask2)
         # Random gaussian blur
         if bool(np.random.choice([True, False], p=[0.2, 0.8])):
             kernel_size = int(np.random.choice([11, 21, 31]))
@@ -177,7 +178,5 @@ class Dataset(data.Dataset):
                 image, kernel_size, sigma)
         if self.mode == "train":
             image = self.color_composed(image)
-        mask = np.array(mask)
-        mask2 = np.array(mask2)
         image = normalize(image)
         return image, mask, mask2
