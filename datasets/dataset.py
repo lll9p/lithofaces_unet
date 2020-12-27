@@ -62,7 +62,7 @@ class Dataset(data.Dataset):
         self.dataset = None
         self.data_len = len(idx)
         if Dataset.dataset is None:
-            if "KAGGLE_CONTAINER_NAME" in os.environ:
+            if "KAGGLE_CONTAINER_NAMEx" in os.environ:
                 h5file = h5py.File(
                     self.config.path,
                     "r",
