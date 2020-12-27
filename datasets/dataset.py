@@ -62,7 +62,7 @@ class Dataset(data.Dataset):
         self.dataset = None
         self.data_len = len(idx)
         if Dataset.dataset is None:
-            if "KAGGLE_CONTAINER_NAMEx" in os.environ:
+            if "KAGGLE_CONTAINER_NAME" in os.environ:
                 h5file = h5py.File(
                     self.config.path,
                     "r",
@@ -120,7 +120,7 @@ class Dataset(data.Dataset):
                     mask_new[mask == value] = self.label_map[label]
             mask = mask_new
             image, mask, _ = self.transforms(image, mask)
-            return image, mask, idx
+            return image, mask, None, idx
         elif self.config.train_on == "edges":
             image, mask, idx, labels = (
                 Dataset.dataset["images"][dataset_index],
@@ -129,7 +129,7 @@ class Dataset(data.Dataset):
                 Dataset.dataset["labels"][dataset_index],
             )
             image, mask, _ = self.transforms(image, mask)
-            return image, mask, idx
+            return image, mask, None, idx
         elif self.config.train_on == "distance":
             image, shape_distance, neighbor_distance, idx, labels = (
                 Dataset.dataset["images"][dataset_index],

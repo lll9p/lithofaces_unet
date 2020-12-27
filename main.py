@@ -133,6 +133,8 @@ class Model:
         for input, target, target2, _ in train_loader:
             input = input.cuda(non_blocking=True)
             target = target.cuda(non_blocking=True)
+            if target2 is not None:
+                target2 = target2.cuda(non_blocking=True)
             self.train_iter(input, target, target2)
 
     def validate_epoch(self, val_loader):
@@ -142,6 +144,8 @@ class Model:
             for input, target, target2, _ in val_loader:
                 input = input.cuda()
                 target = target.cuda()
+                if target2 is not None:
+                    target2 = target2.cuda(non_blocking=True)
                 self.val_iter(input, target, target2)
         self.model.train()
 
