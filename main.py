@@ -87,7 +87,7 @@ class Model:
             drop_last=False,
         )
 
-    def compute_output(self, input, target, target2):
+    def compute_output(self, input, target, target2=None):
         # compute output
         # if self.config.train_on == "distance"
         if self.config.deep_supervision:

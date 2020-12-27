@@ -106,10 +106,10 @@ class Dataset(data.Dataset):
         dataset_index = Dataset.full_idx.index(self.idx[index])
         if self.config.train_on == "masks":
             image, mask, idx, labels = (
-                self.dataset["images"][dataset_index],
-                self.dataset["masks"][dataset_index],
-                self.dataset["idx"][dataset_index],
-                self.dataset["labels"][dataset_index],
+                Dataset.dataset["images"][dataset_index],
+                Dataset.dataset["masks"][dataset_index],
+                Dataset.dataset["idx"][dataset_index],
+                Dataset.dataset["labels"][dataset_index],
             )
             labels = json.loads(labels)
             mask_new = np.zeros_like(mask)
@@ -123,20 +123,20 @@ class Dataset(data.Dataset):
             return image, mask, idx
         elif self.config.train_on == "edges":
             image, mask, idx, labels = (
-                self.dataset["images"][dataset_index],
-                self.dataset["edges"][dataset_index],
-                self.dataset["idx"][dataset_index],
-                self.dataset["labels"][dataset_index],
+                Dataset.dataset["images"][dataset_index],
+                Dataset.dataset["edges"][dataset_index],
+                Dataset.dataset["idx"][dataset_index],
+                Dataset.dataset["labels"][dataset_index],
             )
             image, mask, _ = self.transforms(image, mask)
             return image, mask, idx
         elif self.config.train_on == "distance":
             image, shape_distance, neighbor_distance, idx, labels = (
-                self.dataset["images"][dataset_index],
-                self.dataset["shape_distance"][dataset_index],
-                self.dataset["neighbor_distance"][dataset_index],
-                self.dataset["idx"][dataset_index],
-                self.dataset["labels"][dataset_index],
+                Dataset.dataset["images"][dataset_index],
+                Dataset.dataset["shape_distance"][dataset_index],
+                Dataset.dataset["neighbor_distance"][dataset_index],
+                Dataset.dataset["idx"][dataset_index],
+                Dataset.dataset["labels"][dataset_index],
             )
             image, shape_distance, neighbor_distance = self.transforms(
                 image, shape_distance, neighbor_distance)
