@@ -505,10 +505,9 @@ def create_dataset(results, path):
          images_data,
          masks_data,
          edges_data,
-         labels_data,
-         weight_maps_data,
          shape_distance_data,
-         neighbor_distance_data) = zip(*results)
+         neighbor_distance_data, labels_data,) = zip(*results)
+
         idx_data = tuple(itertools.chain.from_iterable(idx_data))
         images_data = tuple(itertools.chain.from_iterable(images_data))
         masks_data = tuple(itertools.chain.from_iterable(masks_data))
@@ -548,7 +547,8 @@ if __name__ == "__main__":
         "孔洞": "Pore",
     }
     select_classes = ["Alite", "Blite", "C3A", "Pore"]
-    image_ranges = list(range(40)) + [84, 94, 121, 138]
+    # image_ranges = list(range(40)) + [84, 94, 121, 138]
+    image_ranges = [84, 94, 121, 138]
 
     if "KAGGLE_CONTAINER_NAME" in os.environ:
         input_path = '/kaggle/input/lithofaces'
