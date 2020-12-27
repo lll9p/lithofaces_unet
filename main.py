@@ -268,7 +268,8 @@ if __name__ == "__main__":
     config.loss_beta = 1.0
     config.loss_gamma = 250.0
     # if train on edges ignore all labels
-    config.ignore_labels = ["Alite", "Blite", "C3A", "Pore"]
+    # config.ignore_labels = ["Alite", "Blite", "C3A", "Pore"]
+    config.ignore_labels = ["C3A"]
     config.epochs = 200
     # weight should be none when use diceloss
     config.weight = None
