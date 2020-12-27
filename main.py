@@ -130,10 +130,16 @@ class Model:
     def train_epoch(self, train_loader):
         # switch to train mode
         self.model.train()
-        for input, target, target2, _ in train_loader:
-            input = input.cuda(non_blocking=True)
-            target = target.cuda(non_blocking=True)
-            if target2 is not None:
+        for data in train_loader:
+            if self.congfig.train_on == "masks" or "edges":
+                input, target, _ = data
+                input = input.cuda(non_blocking=True)
+                target = target.cuda(non_blocking=True)
+                target2 = None
+            elif self.config.train_on == "distance":
+                input, target, target2, _ = data
+                input = input.cuda(non_blocking=True)
+                target = target.cuda(non_blocking=True)
                 target2 = target2.cuda(non_blocking=True)
             self.train_iter(input, target, target2)
 
@@ -141,10 +147,16 @@ class Model:
         # switch to evaluate mode
         self.model.eval()
         with torch.no_grad():
-            for input, target, target2, _ in val_loader:
-                input = input.cuda()
-                target = target.cuda()
-                if target2 is not None:
+            for data in val_loader:
+                if self.congfig.train_on == "masks" or "edges":
+                    input, target, _ = data
+                    input = input.cuda(non_blocking=True)
+                    target = target.cuda(non_blocking=True)
+                    target2 = None
+                elif self.config.train_on == "distance":
+                    input, target, target2, _ = data
+                    input = input.cuda(non_blocking=True)
+                    target = target.cuda(non_blocking=True)
                     target2 = target2.cuda(non_blocking=True)
                 self.val_iter(input, target, target2)
         self.model.train()
@@ -288,8 +300,8 @@ if __name__ == "__main__":
     model.setup()
     print("=>Training.")
     Logger.init(
+        model.train_loader,
+        model.val_loader,
         progress=True, config=config)
-    model.val_loader,
-    Logger.close()
     model.train(predict=True)
     Logger.close()
