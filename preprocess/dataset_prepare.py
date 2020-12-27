@@ -476,7 +476,7 @@ def split_image(result, resize_factors=[
             assert element.shape[0] == window
             assert element.shape[1] == window
     return idx_data, images_data, masks_data, \
-        edges_data, shape_distance_data,neighbor_distance_data,labels_data
+        edges_data, shape_distance_data, neighbor_distance_data, labels_data
 
 
 def grouper(iterable, n, fillvalue=None):
@@ -501,9 +501,14 @@ def create_dataset(results, path):
                 position=0,
                 total=size))
         results = tuple(filter(None, results))
-        (idx_data, images_data, masks_data,
-         edges_data, labels_data) = zip(*results)
-        #  weight_maps_data,shape_distance_data, neighbor_distance_data
+        (idx_data,
+         images_data,
+         masks_data,
+         edges_data,
+         labels_data,
+         weight_maps_data,
+         shape_distance_data,
+         neighbor_distance_data) = zip(*results)
         idx_data = tuple(itertools.chain.from_iterable(idx_data))
         images_data = tuple(itertools.chain.from_iterable(images_data))
         masks_data = tuple(itertools.chain.from_iterable(masks_data))
@@ -511,9 +516,9 @@ def create_dataset(results, path):
         # weight_maps_data = tuple(
         # itertools.chain.from_iterable(weight_maps_data))
         shape_distance_data = tuple(
-        itertools.chain.from_iterable(shape_distance_data))
+            itertools.chain.from_iterable(shape_distance_data))
         neighbor_distance_data = tuple(
-        itertools.chain.from_iterable(neighbor_distance_data))
+            itertools.chain.from_iterable(neighbor_distance_data))
         labels_data = tuple(itertools.chain.from_iterable(labels_data))
         dataset_file_append(path, idx_data, "idx")
         dataset_file_append(path, labels_data, "labels")
