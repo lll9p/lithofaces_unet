@@ -89,6 +89,7 @@ class Model:
 
     def compute_output(self, input, target, target2):
         # compute output
+        # if self.config.train_on == "distance"
         if self.config.deep_supervision:
             outputs = self.model(input)
             loss = 0

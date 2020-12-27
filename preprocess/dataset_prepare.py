@@ -83,8 +83,8 @@ def dataset_file_init(path="lithofaces.h5"):
         create_dataset(file, "masks", (0, 256, 256), np.dtype("uint8"))
         create_dataset(file, "edges", (0, 256, 256), np.dtype("uint8"))
         # create_dataset(file, "weight_maps", (0, 256, 256), np.float)
-        # create_dataset(file, "shape_distance", (0, 256, 256), np.float)
-        # create_dataset(file, "neighbor_distance", (0, 256, 256), np.float)
+        create_dataset(file, "shape_distance", (0, 256, 256), np.float)
+        create_dataset(file, "neighbor_distance", (0, 256, 256), np.float)
         create_dataset(file, "idx", (0,), h5py.special_dtype(vlen=str))
         create_dataset(file, "labels", (0,), h5py.special_dtype(vlen=str))
 
@@ -400,8 +400,8 @@ def split_image(result, resize_factors=[
     masks_data = []
     edges_data = []
     # weight_maps_data = []
-    # shape_distance_data = []
-    # neighbor_distance_data = []
+    shape_distance_data = []
+    neighbor_distance_data = []
     labels_data = []
     window = window
 
@@ -454,8 +454,8 @@ def split_image(result, resize_factors=[
             masks_data.append(masks_block)
             edges_data.append(edges_block)
             # weight_maps_data.append(border_wm)
-            # shape_distance_data.append(shape_distance_block)
-            # neighbor_distance_data.append(neighbor_distance_block)
+            shape_distance_data.append(shape_distance_block)
+            neighbor_distance_data.append(neighbor_distance_block)
             labels_data.append(
                 json.dumps(
                     trim(
@@ -468,15 +468,15 @@ def split_image(result, resize_factors=[
             masks_data,
             edges_data,
             # weight_maps_data,
-            # shape_distance_data,
-            # neighbor_distance_data
+            shape_distance_data,
+            neighbor_distance_data
     ):
         assert len(data) == data_len
         for element in data:
             assert element.shape[0] == window
             assert element.shape[1] == window
     return idx_data, images_data, masks_data, \
-        edges_data, labels_data
+        edges_data, shape_distance_data,neighbor_distance_data,labels_data
 
 
 def grouper(iterable, n, fillvalue=None):
@@ -510,10 +510,10 @@ def create_dataset(results, path):
         edges_data = tuple(itertools.chain.from_iterable(edges_data))
         # weight_maps_data = tuple(
         # itertools.chain.from_iterable(weight_maps_data))
-        # shape_distance_data = tuple(
-        # itertools.chain.from_iterable(shape_distance_data))
-        # neighbor_distance_data = tuple(
-        # itertools.chain.from_iterable(neighbor_distance_data))
+        shape_distance_data = tuple(
+        itertools.chain.from_iterable(shape_distance_data))
+        neighbor_distance_data = tuple(
+        itertools.chain.from_iterable(neighbor_distance_data))
         labels_data = tuple(itertools.chain.from_iterable(labels_data))
         dataset_file_append(path, idx_data, "idx")
         dataset_file_append(path, labels_data, "labels")
@@ -521,15 +521,15 @@ def create_dataset(results, path):
         dataset_file_append(path, masks_data, "masks")
         dataset_file_append(path, edges_data, "edges")
         # dataset_file_append(path, weight_maps_data, "weight_maps")
-        # dataset_file_append(path, shape_distance_data, "shape_distance")
-        # dataset_file_append(path, neighbor_distance_data, "neighbor_distance")
+        dataset_file_append(path, shape_distance_data, "shape_distance")
+        dataset_file_append(path, neighbor_distance_data, "neighbor_distance")
         del idx_data
         del images_data
         del masks_data
         del edges_data
         # del weight_maps_data
-        # del shape_distance_data
-        # del neighbor_distance_data
+        del shape_distance_data
+        del neighbor_distance_data
         del labels_data
         del results
 
