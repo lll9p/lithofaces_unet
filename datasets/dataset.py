@@ -179,4 +179,7 @@ class Dataset(data.Dataset):
         if self.mode == "train":
             image = self.color_composed(image)
         image = normalize(image)
+        mask = mask.copy()
+        if mask2 is not None:
+            mask2 = mask2.copy()
         return image, mask, mask2
