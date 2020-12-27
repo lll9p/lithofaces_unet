@@ -119,7 +119,7 @@ class Dataset(data.Dataset):
         if self.config.train_on == "distance":
             shape_distance = get_shape_distance(mask)
             neighbor_distance = get_neighbor_distance(mask)
-            return image, shape_distance, neighbor_distance
+            return image, shape_distance, neighbor_distance, idx
         else:
             return image, mask, idx
 
