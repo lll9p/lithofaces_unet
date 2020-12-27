@@ -26,7 +26,7 @@ defaults = dict(
         "Pore": 0.03479914428980516,
         "edges": 0.22213798002852075,
     },
-    train_on="masks", #masks or edges
+    train_on="masks", #masks or edges or distance
     mask_ext=".png",
     milestones="1,2",
     min_learning_rate=1e-05,

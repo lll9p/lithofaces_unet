@@ -1,14 +1,16 @@
 import os
 import pathlib
 
+import h5py
 import matplotlib.pyplot as plt
 import torch
 import torch.backends.cudnn as cudnn
 from PIL import Image
-from torchvision import transforms
+from sklearn.model_selection import train_test_split
+import numpy as np
 
 from config import Config
-from datasets import Dataset,normalize
+from datasets import Dataset, normalize
 from logger import Logger
 from losses import get_loss_criterion
 from models import get_model
@@ -20,6 +22,7 @@ class Model:
         if config is None:
             config = Config()
         self.config = config
+
     def setup(self):
         config = self.config
         self.root = pathlib.Path(config.path)
@@ -39,10 +42,33 @@ class Model:
         params = filter(lambda p: p.requires_grad, self.model.parameters())
         self.optimizer = get_optimizer(config, params)
         self.scheduler = get_scheduler(config, self.optimizer)
-        dataset_path = config.path
         # Data loading
-        train_dataset = Dataset(root=self.root, mode="train", config=config)
-        val_dataset = Dataset(root=self.root, mode="val", config=config)
+        with h5py.File(self.config.path, mode="r") as file:
+            Dataset.full_idx = file["idx"][:].tolist()
+        idx_head = list(set(i.split("-")[0] for i in Dataset.full_idx))
+        # 按head分train val
+        # shuffle train val idx
+        train_idx_head, val_idx_head = train_test_split(
+            idx_head, test_size=0.2, random_state=42, shuffle=True)
+        train_idx = []
+        val_idx = []
+        for idx in Dataset.full_idx:
+            if idx.split("-")[0] in train_idx_head:
+                train_idx.append(idx)
+            else:
+                val_idx.append(idx)
+        # np.random.shuffle(train_idx)
+        # np.random.shuffle(val_idx)
+        train_dataset = Dataset(
+            root=self.root,
+            mode="train",
+            config=config,
+            idx=train_idx)
+        val_dataset = Dataset(
+            root=self.root,
+            mode="val",
+            config=config,
+            idx=val_idx)
 
         self.train_loader = torch.utils.data.DataLoader(
             train_dataset,
@@ -61,20 +87,20 @@ class Model:
             drop_last=False,
         )
 
-    def compute_output(self, input, target, weight_map):
+    def compute_output(self, input, target, target2):
         # compute output
         if self.config.deep_supervision:
             outputs = self.model(input)
             loss = 0
             for output in outputs:
-                loss += self.criterion(output, target, weight_map)
+                loss += self.criterion(output, target, target2)
             loss /= len(outputs)
             iou = iou_score(
                 outputs[-1],
                 target, self.config.labels, self.config.ignore_labels)
         else:
             output = self.model(input)
-            loss = self.criterion(output, target, weight_map)
+            loss = self.criterion(output, target, target2)
             # print(loss)
             iou = iou_score(
                 output, target, self.config.labels, self.config.ignore_labels
@@ -82,9 +108,9 @@ class Model:
         return loss, iou
 
     @Logger(name="train")
-    def train_iter(self, input, target, weight_map):
+    def train_iter(self, input, target, target2):
         # compute output
-        loss, iou = self.compute_output(input, target, weight_map)
+        loss, iou = self.compute_output(input, target, target2)
         # compute gradient and do optimizing step
         self.optimizer.zero_grad()
         loss.backward()
@@ -92,30 +118,30 @@ class Model:
         return loss.item(), iou
 
     @Logger(name="val")
-    def val_iter(self, input, target, weight_map):
+    def val_iter(self, input, target, target2):
         # compute output
-        loss, iou = self.compute_output(input, target, weight_map)
+        loss, iou = self.compute_output(input, target, target2)
         return loss.item(), iou
 
     def train_epoch(self, train_loader):
         # switch to train mode
         self.model.train()
-        for input, target, weight_map, _ in train_loader:
+        for input, target, target2, _ in train_loader:
             input = input.cuda(non_blocking=True)
             target = target.cuda(non_blocking=True)
-            self.train_iter(input, target, weight_map)
+            self.train_iter(input, target, target2)
 
     def validate_epoch(self, val_loader):
         # switch to evaluate mode
         self.model.eval()
         with torch.no_grad():
-            for input, target, weight_map, _ in val_loader:
+            for input, target, target2, _ in val_loader:
                 input = input.cuda()
                 target = target.cuda()
-                self.val_iter(input, target, weight_map)
+                self.val_iter(input, target, target2)
         self.model.train()
 
-    def train(self,predict=False):
+    def train(self, predict=False):
         config = self.config
         best_iou = 0
         trigger = 0
@@ -196,6 +222,7 @@ class Model:
     #     if isinstance(self.model, nn.DataParallel):
     #         state_dict = self.model.module.state_dict()
     #     else:
+
     #         state_dict = self.model.state_dict()
 
     #     utils.save_checkpoint({
@@ -213,6 +240,8 @@ class Model:
     #         'validate_iters': self.validate_iters
     #     }, is_best, checkpoint_dir=self.checkpoint_dir,
     #         logger=logger)
+
+
 if __name__ == "__main__":
     config = Config()
     if "KAGGLE_CONTAINER_NAME" in os.environ:
@@ -244,14 +273,14 @@ if __name__ == "__main__":
     config.weight = None
     # config.learning_rate = 0.01
     Config.check_classes(config)
-    config.train_on = "edges"
+    config.train_on = "masks"
     model = Model(config=config)
     print("=>Setting Dataset.")
     model.setup()
     print("=>Training.")
     Logger.init(
-        model.train_loader,
-        model.val_loader,
-        progress=True,config=config)
+        progress=True, config=config)
+    model.val_loader,
+    Logger.close()
     model.train(predict=True)
     Logger.close()

@@ -1,11 +1,13 @@
+import json
 import os
 import random
 
 import h5py
 import numpy as np
+from lithofaces_unet import get_neighbor_distance, get_shape_distance
+from sklearn.model_selection import KFold
 from torch.utils import data
 from torchvision import transforms
-import json
 
 # def semantic2onehot(mask, labels, ignore_labels):
 #     def labels2num(labels, ignore_labels):
@@ -45,32 +47,35 @@ def normalize(image):
 
 
 class Dataset(data.Dataset):
-    def __init__(self, root, config=None, mode="train"):
+    full_idx = None
+
+    def __init__(self, root, config=None, mode="train", idx=None):
         self.config = config
         self.root = root
+        self.idx = idx
         labels = config.labels[:]
         ignore_labels = config.ignore_labels[:]
         for i_label in ignore_labels:
             if i_label in labels:
                 labels.pop(labels.index(i_label))
         self.label_map = {label: i for i, label in enumerate(labels, start=1)}
-        self.masks = config.train_on
+        if config.train_on != 'edges':
+            self.masks = "masks"
+        else:
+            self.masks = "edges"
         self.mode = mode
         self.dataset = None
-        with h5py.File(self.config.path, "r") as file:
-            self.data_len = len(file[f"{mode}/images"])
+        self.data_len = len(idx)
         if "KAGGLE_CONTAINER_NAME" in os.environ:
             h5file = h5py.File(
                 self.config.path,
                 "r",
                 libver="latest",
-                swmr=True)[
-                self.mode]
+                swmr=True)
             print("Detect in Kaggle, reading all data to memory.")
             self.dataset = dict()
             self.dataset["images"] = h5file["images"][()]
             self.dataset[self.masks] = h5file[self.masks][()]
-            self.dataset["weight_maps"] = h5file["weight_maps"][()]
             self.dataset["idx"] = h5file["idx"][()]
             self.dataset["labels"] = h5file["labels"][()]
         self.color_composed = transforms.Compose(
@@ -93,16 +98,15 @@ class Dataset(data.Dataset):
                 self.config.path,
                 "r",
                 libver="latest",
-                swmr=True)[
-                self.mode]
-        image, mask, weight_map, idx, labels = (
-            self.dataset["images"][index],
-            self.dataset[self.masks][index],
-            self.dataset["weight_maps"][index],
-            self.dataset["idx"][index],
-            self.dataset["labels"][index],
+                swmr=True)
+        dataset_index = Dataset.full_idx.index(self.idx[index])
+        image, mask, idx, labels = (
+            self.dataset["images"][dataset_index],
+            self.dataset[self.masks][dataset_index],
+            self.dataset["idx"][dataset_index],
+            self.dataset["labels"][dataset_index],
         )
-        if self.masks == "masks":
+        if self.config.train_on == "masks":
             labels = json.loads(labels)
             mask_new = np.zeros_like(mask)
             for label, values in labels.items():
@@ -111,14 +115,18 @@ class Dataset(data.Dataset):
                 for value in values:
                     mask_new[mask == value] = self.label_map[label]
             mask = mask_new
-        # if self.transforms is not None:
-        image, mask, weight_map = self.transforms(image, mask, weight_map)
-        return image, mask, weight_map, idx
+        image, mask = self.transforms(image, mask)
+        if self.config.train_on == "distance":
+            shape_distance = get_shape_distance(mask)
+            neighbor_distance = get_neighbor_distance(mask)
+            return image, shape_distance, neighbor_distance
+        else:
+            return image, mask, idx
 
     def __len__(self):
         return self.data_len
 
-    def transforms(self, image, mask, weight_map):
+    def transforms(self, image, mask):
         image = transforms.functional.to_pil_image(image)
         mask = transforms.functional.to_pil_image(mask)
         # RandomCrop
@@ -126,20 +134,16 @@ class Dataset(data.Dataset):
             image, output_size=(224, 224))
         image = transforms.functional.crop(image, i, j, h, w)
         mask = transforms.functional.crop(mask, i, j, h, w)
-        weight_map = weight_map[..., i: i + h, j: j + w]
         if random.random() > 0.5:
             image = transforms.functional.hflip(image)
             mask = transforms.functional.hflip(mask)
-            weight_map = np.fliplr(weight_map)
         if random.random() > 0.5:
             image = transforms.functional.vflip(image)
             mask = transforms.functional.vflip(mask)
-            weight_map = np.flipud(weight_map)
         # Random rotate90
         if random.random() > 0.5:
             image = transforms.functional.rotate(image, 90)
             mask = transforms.functional.rotate(mask, 90)
-            weight_map = np.rot90(weight_map)
         # Random gaussian blur
         if bool(np.random.choice([True, False], p=[0.2, 0.8])):
             kernel_size = int(np.random.choice([11, 21, 31]))
@@ -150,4 +154,4 @@ class Dataset(data.Dataset):
             image = self.color_composed(image)
         mask = np.array(mask)
         image = normalize(image)
-        return image, mask.astype(np.int64), weight_map.copy()
+        return image, mask.astype(np.int64)
