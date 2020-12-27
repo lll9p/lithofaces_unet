@@ -131,7 +131,7 @@ class Model:
         # switch to train mode
         self.model.train()
         for data in train_loader:
-            if self.congfig.train_on == "masks" or "edges":
+            if self.config.train_on == "masks" or "edges":
                 input, target, _ = data
                 input = input.cuda(non_blocking=True)
                 target = target.cuda(non_blocking=True)
@@ -148,7 +148,7 @@ class Model:
         self.model.eval()
         with torch.no_grad():
             for data in val_loader:
-                if self.congfig.train_on == "masks" or "edges":
+                if self.config.train_on == "masks" or "edges":
                     input, target, _ = data
                     input = input.cuda(non_blocking=True)
                     target = target.cuda(non_blocking=True)
