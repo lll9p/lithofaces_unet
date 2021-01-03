@@ -14,7 +14,7 @@ from datasets import Dataset, normalize
 from logger import Logger
 from losses import get_loss_criterion
 from models import get_model
-from utils import get_optimizer, get_scheduler, iou_score
+from utils import get_optimizer, get_scheduler, iou_score, iou_pytorch
 
 
 class Model:
@@ -92,23 +92,42 @@ class Model:
 
     def compute_output(self, input, target, target2=None):
         # compute output
-        # if self.config.train_on == "distance"
-        if self.config.deep_supervision:
-            outputs = self.model(input)
-            loss = 0
-            for output in outputs:
-                loss += self.criterion(output, target, target2)
-            loss /= len(outputs)
-            iou = iou_score(
-                outputs[-1],
-                target, self.config.labels, self.config.ignore_labels)
-        else:
-            output = self.model(input)
-            loss = self.criterion(output, target, target2)
-            # print(loss)
-            iou = iou_score(
-                output, target, self.config.labels, self.config.ignore_labels
+        if self.config.train_on == "distance":
+            shape_distance, neighbor_distance = self.model(input)
+            shape_distance = shape_distance.squeeze()
+            neighbor_distance = neighbor_distance.squeeze()
+            loss = self.criterion(target,target2,shape_distance, neighbor_distance)
+            iou_border = iou_pytorch(
+                target > torch.tensor(
+                    [0.5],
+                    requires_grad=False).to("cuda"),
+                shape_distance)
+            iou_cells = iou_pytorch(
+                target2 > torch.tensor(
+                    [0.5],
+                    requires_grad=False).to("cuda"),
+                neighbor_distance,
             )
+            iou = (iou_border + iou_cells) / 2
+        else:
+            if self.config.deep_supervision:
+                outputs = self.model(input)
+                loss = 0
+                for output in outputs:
+                    loss += self.criterion(output, target, target2)
+                loss /= len(outputs)
+                iou = iou_score(
+                    outputs[-1],
+                    target, self.config.labels, self.config.ignore_labels)
+            else:
+                output = self.model(input)
+                loss = self.criterion(output, target, target2)
+                # print(loss)
+                iou = iou_score(
+                    output,
+                    target,
+                    self.config.labels,
+                    self.config.ignore_labels)
         return loss, iou
 
     @Logger(name="train")
@@ -131,7 +150,7 @@ class Model:
         # switch to train mode
         self.model.train()
         for data in train_loader:
-            if self.config.train_on == "masks" or "edges":
+            if self.config.train_on == "masks" or self.config.train_on == "edges":
                 input, target, _ = data
                 input = input.cuda(non_blocking=True)
                 target = target.cuda(non_blocking=True)
@@ -139,8 +158,8 @@ class Model:
             elif self.config.train_on == "distance":
                 input, target, target2, _ = data
                 input = input.cuda(non_blocking=True)
-                target = target.cuda(non_blocking=True)
-                target2 = target2.cuda(non_blocking=True)
+                target = target.float().cuda(non_blocking=True)
+                target2 = target2.float().cuda(non_blocking=True)
             self.train_iter(input, target, target2)
 
     def validate_epoch(self, val_loader):
@@ -148,7 +167,7 @@ class Model:
         self.model.eval()
         with torch.no_grad():
             for data in val_loader:
-                if self.config.train_on == "masks" or "edges":
+                if self.config.train_on == "masks" or self.config.train_on == "edges":
                     input, target, _ = data
                     input = input.cuda(non_blocking=True)
                     target = target.cuda(non_blocking=True)
@@ -156,8 +175,8 @@ class Model:
                 elif self.config.train_on == "distance":
                     input, target, target2, _ = data
                     input = input.cuda(non_blocking=True)
-                    target = target.cuda(non_blocking=True)
-                    target2 = target2.cuda(non_blocking=True)
+                    target = target.float().cuda(non_blocking=True)
+                    target2 = target2.float().cuda(non_blocking=True)
                 self.val_iter(input, target, target2)
         self.model.train()
 
@@ -205,15 +224,28 @@ class Model:
             for idx, image_path in enumerate(image_paths):
                 image = Image.open(image_path)
                 image = normalize(image).unsqueeze(0).to(self.config.device)
-                if self.config.deep_supervision:
-                    output = self.model(image)[-1]
+                if self.config.train_on == "distance":
+                    shape_distance, neighbor_distance = self.model(image)
+                    shape_distance = shape_distance.squeeze().cpu()
+                    neighbor_distance = neighbor_distance.squeeze().cpu()
+                    plt.imsave(
+                        f"./networks/{self.config.name}/{idx}-{epoch}-shape.png",
+                        shape_distance,
+                    )
+                    plt.imsave(
+                        f"./networks/{self.config.name}/{idx}-{epoch}-neighbor.png",
+                        neighbor_distance,
+                    )
                 else:
-                    output = self.model(image)
-                output = torch.sigmoid(output).cpu()
-                plt.imsave(
-                    f"./networks/{self.config.name}/{idx}-{epoch}.png",
-                    torch.argmax(output[0], 0),
-                )
+                    if self.config.deep_supervision:
+                        output = self.model(image)[-1]
+                    else:
+                        output = self.model(image)
+                        output = torch.sigmoid(output).cpu()
+                    plt.imsave(
+                        f"./networks/{self.config.name}/{idx}-{epoch}.png",
+                        torch.argmax(output[0], 0),
+                    )
                 del image
         self.model.train()
     # @classmethod
@@ -266,7 +298,7 @@ if __name__ == "__main__":
     config = Config()
     if "KAGGLE_CONTAINER_NAME" in os.environ:
         config.path = "/kaggle/input/lithofaces-dataset/lithofaces.h5"
-        config.batch_size = 32
+        config.batch_size = 8
         config.num_workers = 2
         test_path = "/kaggle/input/lithofaces-test-image/"
         config.test_images = [
@@ -274,16 +306,18 @@ if __name__ == "__main__":
             test_path + "2010.136.1_200X130909_011.JPG"]
     else:
         config.path = "/home/lao/Data/lithofaces.h5"
-        config.batch_size = 64
+        config.batch_size = 16
         config.num_workers = 12
         test_path = "../data/segmentation/images/"
         config.test_images = [
             test_path + "116_image_130909_041.JPG",
             test_path + "122_image_201023_002.JPG"]
-    config.model = "UNet"
-    config.loss = "BCEDiceLoss"
+    config.model = "DUNet"
+    config.loss = "DistanceLoss"
     config.deep_supervision = False
-    config.loss_alpha = 1.0
+    # train on distance
+    config.loss_alpha = 0.0075
+    # config.loss_alpha = 1.0
     config.loss_beta = 1.0
     config.loss_gamma = 250.0
     # if train on edges ignore all labels
@@ -294,7 +328,7 @@ if __name__ == "__main__":
     config.weight = None
     # config.learning_rate = 0.01
     Config.check_classes(config)
-    config.train_on = "masks"
+    config.train_on = "distance"
     model = Model(config=config)
     print("=>Setting Dataset.")
     model.setup()

@@ -9,8 +9,8 @@ defaults = dict(
     ignore_labels=["C3A"],
     img_ext=".png",
     input_channels=3,
-    input_height=224,
-    input_wide=224,
+    input_height=256,
+    input_wide=256,
     device="cuda",
     labels=["Alite", "Blite", "C3A", "Pore"],
     learning_rate=0.001,
@@ -26,7 +26,7 @@ defaults = dict(
         "Pore": 0.03479914428980516,
         "edges": 0.22213798002852075,
     },
-    train_on="masks", #masks or edges or distance
+    train_on="masks",  # masks or edges or distance
     mask_ext=".png",
     milestones="1,2",
     min_learning_rate=1e-05,

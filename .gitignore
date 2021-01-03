@@ -144,6 +144,7 @@ LovaszSoftmax
 inputs/*
 networks/*
 outputs/*
+app/*
 
 *.swp
 !gitkeep

@@ -1,5 +1,7 @@
 import numpy as np
 import torch
+
+
 def expand_as_one_hot(input, labels, ignore_labels=None):
     """
     Converts NxHxW label image to NxCxHxW, where each label gets
@@ -33,13 +35,45 @@ def expand_as_one_hot(input, labels, ignore_labels=None):
     # including background
     return result
 
+
+def iou_pytorch(labels, predictions, device="cuda"):
+    """ Simple IoU-metric.
+
+    :param predictions: Batch of predictions.
+        :type predictions:
+    :param labels: Batch of ground truths / label images.
+        :type labels:
+    :param device: cuda (gpu) or cpu.
+        :type device:
+    :return: Intersection over union.
+"""
+    a = predictions.clone().detach()
+
+    # Apply sigmoid activation function in one-class problems
+    # a = torch.sigmoid(a)
+
+    # Flatten predictions and apply threshold
+    a = a.view(-1) > torch.tensor([0.5], requires_grad=False).to(device)
+
+    # Flatten labels
+    b = labels.clone().detach().view(-1).bool()
+
+    # Calculate intersection over union
+    intersection = torch.sum((a * b).float())
+    union = torch.sum(torch.max(a, b).float())
+    iou = intersection / (union + 1e-6)
+
+    return iou.cpu().numpy()
+
+
 def iou_score(output, target, *args):
     smooth = 1e-5
-    target = expand_as_one_hot(target, *args)
-    if torch.is_tensor(output):
-        output = torch.sigmoid(output).data.cpu().numpy()
-    if torch.is_tensor(target):
-        target = target.data.cpu().numpy()
+    if "distance" not in args:
+        target = expand_as_one_hot(target, *args)
+        if torch.is_tensor(output):
+            output = torch.sigmoid(output).data.cpu().numpy()
+        if torch.is_tensor(target):
+            target = target.data.cpu().numpy()
     #output[:10, :, :] = output[:10, :, :] * 3.0
     #target[:10, :, :] = target[:10, :, :] * 3.0
     output_ = output > 0.5

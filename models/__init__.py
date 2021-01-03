@@ -1,5 +1,5 @@
+from .dunet import build_unet
 from .Nested_UNet import NestedUNet, UNet
-from .u2net import U2NET, U2NETP
 
 
 def get_model(config):
@@ -12,6 +12,15 @@ def get_model(config):
         model = UNet(
             config.num_classes, config.input_channels
         )
-    if config.model == "U2NETP":
-        model = U2NETP(config.input_channels, config.num_classes,)
+    if config.model == "DUNet":
+        model = build_unet(unet_type="DU",
+                           act_fun="relu",
+                           pool_method="conv",
+                           normalization="bn",
+                           device="cuda",
+                           num_gpus=1,
+                           ch_in=config.input_channels,
+                           ch_out=1,
+                           filters=(64, 1024),
+                           print_path=None)
     return model

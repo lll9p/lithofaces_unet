@@ -18,7 +18,8 @@ class _DiceLoss(nn.Module):
 
     def forward(self, input, target, *args):
         input = self.activation(input)
-        per_channel_dice = compute_per_channel_dice(input, target, weight=self.weight)
+        per_channel_dice = compute_per_channel_dice(
+            input, target, weight=self.weight)
         return 1.0 - torch.mean(per_channel_dice)
 
 
@@ -95,22 +96,30 @@ class BCEPixelWiseDiceLoss(nn.Module):
         weights = weights.expand_as(input).to(input.device)
         input_wmse = self.activation(input)
         wmse = (
-            self.mse(input_wmse, target) * weights / target.shape[1] / target.shape[0]
-        ).mean()
+            self.mse(
+                input_wmse,
+                target) *
+            weights /
+            target.shape[1] /
+            target.shape[0]).mean()
         bce = self.bce(input, target)
         dice = self.dice(input, target)
         # print(wmse.item(),bce.item(),dice.item())
         return (
-            self.alpha *bce 
-            + self.beta *dice 
+            self.alpha * bce
+            + self.beta * dice
             + self.gamma * wmse
         )
 
 
 class PixelWiseDiceLoss(nn.Module):
     def __init__(
-        self, beta=None, gamma=None, weight=None, activation="sigmoid", config=None
-    ):
+            self,
+            beta=None,
+            gamma=None,
+            weight=None,
+            activation="sigmoid",
+            config=None):
         super(PixelWiseDiceLoss, self).__init__()
         if activation == "sigmoid":
             self.activation = nn.Sigmoid()
@@ -133,10 +142,36 @@ class PixelWiseDiceLoss(nn.Module):
         weights = weights.expand_as(input).to(input.device)
         input_wmse = self.activation(input)
         wmse = (
-            self.mse(input_wmse, target) * weights / target.shape[1] / target.shape[0]
-        ).mean()
+            self.mse(
+                input_wmse,
+                target) *
+            weights /
+            target.shape[1] /
+            target.shape[0]).mean()
         dice = self.dice(input, target)
         return self.beta * dice + self.gamma * wmse
+
+
+class DistanceLoss(nn.Module):
+    def __init__(self, config):
+        super(DistanceLoss, self).__init__()
+        self.alpha = config.loss_alpha
+        self.beta = config.loss_beta
+        self.shape_distance_criterion = nn.SmoothL1Loss()
+        self.neighbor_distance_criterion = nn.SmoothL1Loss()
+
+    def forward(
+            self,
+            shape_distance_true,
+            neighbor_distance_true,
+            shape_distance,
+            neighbor_distance):
+        return self.alpha * self.shape_distance_criterion(
+            shape_distance_true,
+            shape_distance) + \
+            self.beta * self.neighbor_distance_criterion(
+            neighbor_distance_true,
+            neighbor_distance)
 
 
 class PixelWiseCrossEntropyLoss(nn.Module):
@@ -298,6 +333,7 @@ SUPPORTED_LOSSES = [
     "BCEPixelWiseDiceLoss",
     "PixelWiseCrossEntropyLoss",
     "PixelWiseDiceLoss",
+    "DistanceLoss"
 ]
 
 
@@ -310,10 +346,10 @@ def _create_loss(name, config, weight):
         )
     elif name == "BCEPixelWiseDiceLoss":
         return BCEPixelWiseDiceLoss(
-            alpha = config.loss_alpha,
-            beta = config.loss_beta,
-            gamma = config.loss_gamma,
-            activation = config.dice_activation,
+            alpha=config.loss_alpha,
+            beta=config.loss_beta,
+            gamma=config.loss_gamma,
+            activation=config.dice_activation,
             config=config
         )
     elif name == "PixelWiseCrossEntropyLoss":
@@ -326,6 +362,8 @@ def _create_loss(name, config, weight):
             weight=weight,
             config=config,
         )
+    elif name == "DistanceLoss":
+        return DistanceLoss(config)
     else:
         raise RuntimeError(
             f"Unsupported loss function: '{name}'. Supported losses: {SUPPORTED_LOSSES}"

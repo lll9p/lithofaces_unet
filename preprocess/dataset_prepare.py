@@ -254,7 +254,7 @@ def get_neighbor_distance(mask):
         invert_dt[indice_] = 0.0
         # normalize
         maxi = invert_dt.max()
-        if maxi != 0.0:
+        if maxi > 0.0:
             invert_dt = invert_dt / maxi
         # invert
         invert_dt = 1.0 - invert_dt
@@ -262,7 +262,7 @@ def get_neighbor_distance(mask):
         invert_dt[indice_] = 0.0
         # normalize again
         maxi = invert_dt.max()
-        if maxi != 0.0:
+        if maxi > 0.0:
             invert_dt = invert_dt / maxi
         neighbor_distance += invert_dt
     neighbor_distance = morphology.closing(neighbor_distance,
