@@ -166,12 +166,10 @@ class DistanceLoss(nn.Module):
             neighbor_distance_true,
             shape_distance,
             neighbor_distance):
-        return self.alpha * self.shape_distance_criterion(
-            shape_distance_true,
-            shape_distance) + \
-            self.beta * self.neighbor_distance_criterion(
-            neighbor_distance_true,
-            neighbor_distance)
+        shapeloss = self.shape_distance_criterion(shape_distance_true,shape_distance)
+        neighborloss = self.neighbor_distance_criterion(neighbor_distance_true,neighbor_distance)
+        print(shapeloss,neighborloss)
+        return self.alpha*shapeloss+self.beta*neighborloss
 
 
 class PixelWiseCrossEntropyLoss(nn.Module):
