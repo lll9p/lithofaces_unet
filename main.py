@@ -316,7 +316,8 @@ if __name__ == "__main__":
     config.loss = "DistanceLoss"
     config.deep_supervision = False
     # train on distance
-    config.loss_alpha = 0.0075
+    config.loss_alpha = 1.0
+    #config.loss_alpha = 0.0075
     # config.loss_alpha = 1.0
     config.loss_beta = 1.0
     config.loss_gamma = 250.0
