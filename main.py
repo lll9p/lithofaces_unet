@@ -102,12 +102,12 @@ class Model:
                 target > torch.tensor(
                     [0.5],
                     requires_grad=False).to(self.config.device),
-                shape_distance)
+                shape_distance,device=self.config.device)
             iou_cells = iou_pytorch(
                 target2 > torch.tensor(
                     [0.5],
                     requires_grad=False).to(self.config.device),
-                neighbor_distance,
+                neighbor_distance,device=self.config.device
             )
             iou = (iou_border + iou_cells) / 2
         else:
