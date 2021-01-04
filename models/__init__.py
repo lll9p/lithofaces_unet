@@ -18,7 +18,7 @@ def get_model(config):
                            act_fun="relu",
                            pool_method="conv",
                            normalization="bn",
-                           device="cuda",
+                           device=config.device,
                            num_gpus=1,
                            ch_in=config.model.input_channels,
                            ch_out=1,
