@@ -30,23 +30,24 @@ class Model:
         config = self.config
         self.root = pathlib.Path(config.path)
         if config.name is None:
-            name = f"{config.dataset}_{config.model}"
+            name = f"{config.dataset.name}_{config.model.name}"
             config.name = name + ("_wDS"
-                                  if config.deep_supervision else "_woDS")
+                                  if config.model.deep_supervision else "_woDS")
         os.makedirs(f"networks/{config.name}", exist_ok=True)
         config.save(f"networks/{config.name}/config.yml")
         # Define loss function(criterion)
-        self.criterion = get_loss_criterion(config).cuda()
-        cudnn.benchmark = True
+        self.criterion = get_loss_criterion(config).to(self.config.device)
+        if self.config.device=="cuda":
+            cudnn.benchmark = True
         # Create model
-        print(f"=>Creating model {config.model}")
+        print(f"=>Creating model {config.model.name}")
         model = get_model(config)
-        self.model = model.cuda()
+        self.model = model.to(self.config.device)
         params = filter(lambda p: p.requires_grad, self.model.parameters())
         self.optimizer = get_optimizer(config, params)
         self.scheduler = get_scheduler(config, self.optimizer)
         # Data loading
-        with h5py.File(self.config.path, mode="r") as file:
+        with h5py.File(self.config.dataset.path, mode="r") as file:
             Dataset.full_idx = file["idx"][:].tolist()
         idx_head = list(set(i.split("-")[0] for i in Dataset.full_idx))
         # 按head分train val
@@ -75,24 +76,24 @@ class Model:
 
         self.train_loader = torch.utils.data.DataLoader(
             train_dataset,
-            batch_size=config.batch_size,
+            batch_size=config.train.batch_size,
             pin_memory=True,
             shuffle=True,
-            num_workers=config.num_workers,
+            num_workers=config.train.num_workers,
             drop_last=True,
         )
         self.val_loader = torch.utils.data.DataLoader(
             val_dataset,
-            batch_size=config.batch_size,
+            batch_size=config.train.batch_size,
             pin_memory=True,
             shuffle=False,
-            num_workers=config.num_workers,
+            num_workers=config.trian.num_workers,
             drop_last=False,
         )
 
     def compute_output(self, input, target, target2=None):
         # compute output
-        if self.config.train_on == "distance":
+        if self.config.train.on == "distance":
             shape_distance, neighbor_distance = self.model(input)
             shape_distance = shape_distance.squeeze()
             neighbor_distance = neighbor_distance.squeeze()
@@ -100,17 +101,17 @@ class Model:
             iou_border = iou_pytorch(
                 target > torch.tensor(
                     [0.5],
-                    requires_grad=False).to("cuda"),
+                    requires_grad=False).to(self.config.device),
                 shape_distance)
             iou_cells = iou_pytorch(
                 target2 > torch.tensor(
                     [0.5],
-                    requires_grad=False).to("cuda"),
+                    requires_grad=False).to(self.config.device),
                 neighbor_distance,
             )
             iou = (iou_border + iou_cells) / 2
         else:
-            if self.config.deep_supervision:
+            if self.config.model.deep_supervision:
                 outputs = self.model(input)
                 loss = 0
                 for output in outputs:
@@ -118,7 +119,7 @@ class Model:
                 loss /= len(outputs)
                 iou = iou_score(
                     outputs[-1],
-                    target, self.config.labels, self.config.ignore_labels)
+                    target, self.config.dataset.labels, self.config.dataset.ignore_labels)
             else:
                 output = self.model(input)
                 loss = self.criterion(output, target, target2)
@@ -126,8 +127,8 @@ class Model:
                 iou = iou_score(
                     output,
                     target,
-                    self.config.labels,
-                    self.config.ignore_labels)
+                    self.config.dataset.labels,
+                    self.config.dataset.ignore_labels)
         return loss, iou
 
     @Logger(name="train")
@@ -148,35 +149,37 @@ class Model:
 
     def train_epoch(self, train_loader):
         # switch to train mode
+        device=self.config.device
         self.model.train()
         for data in train_loader:
-            if self.config.train_on == "masks" or self.config.train_on == "edges":
+            if self.config.train.on == "masks" or self.config.train.on == "edges":
                 input, target, _ = data
-                input = input.cuda(non_blocking=True)
-                target = target.cuda(non_blocking=True)
+                input = input.to(device,non_blocking=True)
+                target = target.to(device,non_blocking=True)
                 target2 = None
-            elif self.config.train_on == "distance":
+            elif self.config.train.on == "distance":
                 input, target, target2, _ = data
-                input = input.cuda(non_blocking=True)
-                target = target.float().cuda(non_blocking=True)
-                target2 = target2.float().cuda(non_blocking=True)
+                input = input.to(device,non_blocking=True)
+                target = target.float().to(device,non_blocking=True)
+                target2 = target2.float().to(device,non_blocking=True)
             self.train_iter(input, target, target2)
 
     def validate_epoch(self, val_loader):
         # switch to evaluate mode
+        device=self.config.device
         self.model.eval()
         with torch.no_grad():
             for data in val_loader:
-                if self.config.train_on == "masks" or self.config.train_on == "edges":
+                if self.config.train.on == "masks" or self.config.train.on == "edges":
                     input, target, _ = data
-                    input = input.cuda(non_blocking=True)
-                    target = target.cuda(non_blocking=True)
+                    input = input.to(device,non_blocking=True)
+                    target = target.to(device,non_blocking=True)
                     target2 = None
-                elif self.config.train_on == "distance":
+                elif self.config.train.on == "distance":
                     input, target, target2, _ = data
-                    input = input.cuda(non_blocking=True)
-                    target = target.float().cuda(non_blocking=True)
-                    target2 = target2.float().cuda(non_blocking=True)
+                    input = input.to(device,non_blocking=True)
+                    target = target.float().to(device,non_blocking=True)
+                    target2 = target2.float().to(device,non_blocking=True)
                 self.val_iter(input, target, target2)
         self.model.train()
 
@@ -184,7 +187,7 @@ class Model:
         config = self.config
         best_iou = 0
         trigger = 0
-        for epoch in range(config.epochs):
+        for epoch in range(config.train.epochs):
             # train for one epoch
             self.train_epoch(self.train_loader)
             # evaluate on validation set
@@ -192,12 +195,12 @@ class Model:
             # test images and save
             if predict:
                 self.predict(epoch)
-            if config.scheduler == "CosineAnnealingLR":
+            if config.schedule.name == "CosineAnnealingLR":
                 self.scheduler.step()
-                config.learning_rate_current = self.scheduler.get_last_lr()[0]
-            elif config.scheduler == "ReduceLROnPlateau":
+                config.schedule.learning_rate_current = self.scheduler.get_last_lr()[0]
+            elif config.schedule.name == "ReduceLROnPlateau":
                 self.scheduler.step(Logger.data["val"]["loss"])
-                config.learning_rate_current = self.scheduler.get_last_lr()[0]
+                config.schedule.learning_rate_current = self.scheduler.get_last_lr()[0]
             trigger += 1
 
             if Logger.data["val"]["iou"] > best_iou:
@@ -210,21 +213,22 @@ class Model:
                 trigger = 0
 
             # early stopping
-            if config.early_stopping >= 0 and trigger >= config.early_stopping:
+            if config.train.early_stopping >= 0 and trigger >= config.train.early_stopping:
                 print("=> early stopping")
                 break
-            torch.cuda.empty_cache()
+            if self.config.device=="cuda":
+                torch.cuda.empty_cache()
 
     def predict(self, epoch, image_paths=None, is_in=False):
         self.model.eval()
 
         with torch.no_grad():
             if image_paths is None:
-                image_paths = self.config.test_images
+                image_paths = self.config.test.images
             for idx, image_path in enumerate(image_paths):
                 image = Image.open(image_path)
                 image = normalize(image).unsqueeze(0).to(self.config.device)
-                if self.config.train_on == "distance":
+                if self.config.train.on == "distance":
                     shape_distance, neighbor_distance = self.model(image)
                     shape_distance = shape_distance.squeeze().cpu()
                     neighbor_distance = neighbor_distance.squeeze().cpu()
@@ -237,7 +241,7 @@ class Model:
                         neighbor_distance,
                     )
                 else:
-                    if self.config.deep_supervision:
+                    if self.config.model.deep_supervision:
                         output = self.model(image)[-1]
                     else:
                         output = self.model(image)
@@ -297,39 +301,40 @@ class Model:
 if __name__ == "__main__":
     config = Config()
     if "KAGGLE_CONTAINER_NAME" in os.environ:
-        config.path = "/kaggle/input/lithofaces-dataset/lithofaces.h5"
-        config.batch_size = 8
-        config.num_workers = 2
+        config.dataset.path = "/kaggle/input/lithofaces-dataset/lithofaces.h5"
+        config.train.batch_size = 8
+        config.dataset.num_workers = 2
         test_path = "/kaggle/input/lithofaces-test-image/"
-        config.test_images = [
+        config.test.images = [
             test_path + "0ce6b3901bcd961e6e8d4911b60b4547.JPG",
             test_path + "2010.136.1_200X130909_011.JPG"]
     else:
-        config.path = "/home/lao/Data/lithofaces.h5"
-        config.batch_size = 16
-        config.num_workers = 12
+        config.dataset.path = "/home/lao/Data/lithofaces.h5"
+        config.train.batch_size = 16
+        config.dataset.num_workers = 12
         test_path = "../data/segmentation/images/"
-        config.test_images = [
+        config.test.images = [
             test_path + "116_image_130909_041.JPG",
             test_path + "122_image_201023_002.JPG"]
-    config.model = "DUNet"
-    config.loss = "DistanceLoss"
-    config.deep_supervision = False
+    config.model.name = "DUNet"
+    config.model.deep_supervision = False
+    config.loss.name = "DistanceLoss"
+    config.train.on = "distance"
     # train on distance
-    config.loss_alpha = 1.0
-    #config.loss_alpha = 0.0075
+    config.loss.alpha = 1.0
+    # config.loss_alpha = 0.0075
     # config.loss_alpha = 1.0
-    config.loss_beta = 1.0
-    config.loss_gamma = 250.0
+    config.loss.beta = 1.0
+    config.loss.gamma = 250.0
+    config.device='cpu'
     # if train on edges ignore all labels
     # config.ignore_labels = ["Alite", "Blite", "C3A", "Pore"]
-    config.ignore_labels = ["C3A"]
-    config.epochs = 200
+    config.dataset.ignore_labels = ["C3A"]
+    config.train.epochs = 200
     # weight should be none when use diceloss
-    config.weight = None
+    config.loss.weight = None
     # config.learning_rate = 0.01
     Config.check_classes(config)
-    config.train_on = "distance"
     model = Model(config=config)
     print("=>Setting Dataset.")
     model.setup()
@@ -338,5 +343,5 @@ if __name__ == "__main__":
         model.train_loader,
         model.val_loader,
         progress=True, config=config)
-    model.train(predict=True)
+    model.train(predict=False)
     Logger.close()

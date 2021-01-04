@@ -1,4 +1,64 @@
 defaults = dict(
+    device="cuda",
+    name=None,
+    log_file="/kaggle/working/lithofaces-unet/networks/",
+    train=dict(
+        batch_size=25,
+        early_stopping=-1,
+        epochs=50,
+        on="masks",  # masks or edges or distance
+        input_height=256,
+        input_wide=256,
+    ),
+    test=dict(
+        images=[],
+    ),
+    model=dict(
+        name="UNet",
+        deep_supervision=True,
+        num_classes=5,
+        input_channels=3,
+    ),
+    dataset=dict(
+        name="lithofaces",
+        ignore_labels=["C3A"],
+        labels=["Alite", "Blite", "C3A", "Pore"],
+        num_workers=4,
+        path="/kaggle/input/lithofaces-dataset/lithofaces.h5",
+    ),
+    loss=dict(
+        name="BCEDiceLoss",
+        alpha=1.0,
+        beta=1.0,
+        gamma=1.0,
+        dice_activation="sigmoid",
+        weight={
+            "Alite": 0.006117756485695126,
+            "Blite": 0.012078405772648645,
+            "C3A": 1.0,
+            "Pore": 0.03479914428980516,
+            "edges": 0.22213798002852075,
+        },
+    ),
+    schedule=dict(
+        epoch_current=0,
+        learning_rate_current=0.001,
+        min_learning_rate=1e-05,
+        milestones="1,2",
+        patience=2,
+        name="CosineAnnealingLR",
+        factor=0.1,
+        gamma=2 / 3,
+    ),
+    optim=dict(
+        learning_rate=0.001,
+        nesterov=False,
+        momentum=0.9,
+        name="Adam",
+        weight_decay=0.0001,
+    ),
+)
+defaults_old = dict(
     batch_size=25,
     dataset="minerals_224",
     deep_supervision=True,

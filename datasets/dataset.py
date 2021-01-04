@@ -52,8 +52,8 @@ class Dataset(data.Dataset):
         self.config = config
         self.root = root
         self.idx = idx
-        labels = config.labels[:]
-        ignore_labels = config.ignore_labels[:]
+        labels = config.dataset.labels[:]
+        ignore_labels = config.dataset.ignore_labels[:]
         for i_label in ignore_labels:
             if i_label in labels:
                 labels.pop(labels.index(i_label))
@@ -64,7 +64,7 @@ class Dataset(data.Dataset):
         if Dataset.dataset is None:
             if "KAGGLE_CONTAINER_NAME" in os.environ:
                 h5file = h5py.File(
-                    self.config.path,
+                    self.config.dataset.path,
                     "r",
                     libver="latest",
                     swmr=True)
@@ -73,18 +73,18 @@ class Dataset(data.Dataset):
                 Dataset.dataset["images"] = h5file["images"][()]
                 Dataset.dataset["idx"] = h5file["idx"][()]
                 Dataset.dataset["labels"] = h5file["labels"][()]
-                if self.config.train_on == "masks":
+                if self.config.train.on == "masks":
                     Dataset.dataset["masks"] = h5file["masks"][()]
-                elif self.config.train_on == "edges":
+                elif self.config.train.on == "edges":
                     Dataset.dataset["masks"] = h5file["edges"][()]
-                elif self.config.train_on == "distance":
+                elif self.config.train.on == "distance":
                     Dataset.dataset["shape_distance"] = \
                         h5file["shape_distance"][()]
                     Dataset.dataset["neighbor_distance"] = \
                         h5file["neighbor_distance"][()]
             else:
                 Dataset.dataset = h5py.File(
-                    self.config.path,
+                    self.config.dataset.path,
                     "r",
                     libver="latest",
                     swmr=True)
@@ -104,7 +104,7 @@ class Dataset(data.Dataset):
 
     def __getitem__(self, index):
         dataset_index = Dataset.full_idx.index(self.idx[index])
-        if self.config.train_on == "masks":
+        if self.config.train.on == "masks":
             image, mask, idx, labels = (
                 Dataset.dataset["images"][dataset_index],
                 Dataset.dataset["masks"][dataset_index],
@@ -114,14 +114,14 @@ class Dataset(data.Dataset):
             labels = json.loads(labels)
             mask_new = np.zeros_like(mask)
             for label, values in labels.items():
-                if label in self.config.ignore_labels:
+                if label in self.config.dataset.ignore_labels:
                     continue
                 for value in values:
                     mask_new[mask == value] = self.label_map[label]
             mask = mask_new
             image, mask, _ = self.transforms(image, mask)
             return image, mask.astype(np.int64), idx
-        elif self.config.train_on == "edges":
+        elif self.config.train.on == "edges":
             image, mask, idx, labels = (
                 Dataset.dataset["images"][dataset_index],
                 Dataset.dataset["edges"][dataset_index],
@@ -130,7 +130,7 @@ class Dataset(data.Dataset):
             )
             image, mask, _ = self.transforms(image, mask)
             return image, mask.astype(np.int64), idx
-        elif self.config.train_on == "distance":
+        elif self.config.train.on == "distance":
             image, shape_distance, neighbor_distance, idx, labels = (
                 Dataset.dataset["images"][dataset_index],
                 Dataset.dataset["shape_distance"][dataset_index],

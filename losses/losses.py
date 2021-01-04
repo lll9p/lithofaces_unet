@@ -29,9 +29,9 @@ class DiceLoss(nn.Module):
     def __init__(self, activation, config):
         super(DiceLoss, self).__init__()
         self.dice = _DiceLoss(activation)
-        self.ignore_labels = config.ignore_labels
-        self.labels = config.labels
-        self.weight = config.weight
+        self.ignore_labels = config.dataset.ignore_labels
+        self.labels = config.dataset.labels
+        self.weight = config.loss.weight
 
     def forward(self, input, target, *args):
         target = expand_as_one_hot(
@@ -49,9 +49,9 @@ class BCEDiceLoss(nn.Module):
         self.alpha = alpha
         self.beta = beta
         self.dice = _DiceLoss(activation)
-        self.ignore_labels = config.ignore_labels
-        self.labels = config.labels
-        self.weight = config.weight
+        self.ignore_labels = config.dataset.ignore_labels
+        self.labels = config.dataset.labels
+        self.weight = config.loss.weight
 
     def forward(self, input, target, *args):
         target = expand_as_one_hot(
@@ -84,8 +84,8 @@ class BCEPixelWiseDiceLoss(nn.Module):
         self.gamma = gamma
         self.bce = nn.BCEWithLogitsLoss()
         self.weight = weight
-        self.labels = config.labels
-        self.ignore_labels = config.ignore_labels
+        self.labels = config.dataset.labels
+        self.ignore_labels = config.dataset.ignore_labels
         self.dice = _DiceLoss(activation, weight=self.weight)
         self.mse = nn.MSELoss(reduction="none")
 
@@ -130,8 +130,8 @@ class PixelWiseDiceLoss(nn.Module):
         self.beta = beta
         self.gamma = gamma
         self.weight = weight
-        self.labels = config.labels
-        self.ignore_labels = config.ignore_labels
+        self.labels = config.dataset.labels
+        self.ignore_labels = config.dataset.ignore_labels
         self.dice = _DiceLoss(activation, weight=self.weight)
         self.mse = nn.MSELoss(reduction="none")
 
@@ -155,8 +155,8 @@ class PixelWiseDiceLoss(nn.Module):
 class DistanceLoss(nn.Module):
     def __init__(self, config):
         super(DistanceLoss, self).__init__()
-        self.alpha = config.loss_alpha
-        self.beta = config.loss_beta
+        self.alpha = config.loss.alpha
+        self.beta = config.loss.beta
         self.shape_distance_criterion = nn.SmoothL1Loss()
         self.neighbor_distance_criterion = nn.SmoothL1Loss()
 
@@ -176,8 +176,8 @@ class PixelWiseCrossEntropyLoss(nn.Module):
     def __init__(self, config, class_weights=None):
         super(PixelWiseCrossEntropyLoss, self).__init__()
         self.register_buffer("class_weights", class_weights)
-        self.ignore_labels = config.ignore_labels
-        self.labels = config.labels
+        self.ignore_labels = config.dataset.ignore_labels
+        self.labels = config.dataset.labels
         self.log_softmax = nn.LogSoftmax(dim=1)
 
     def forward(self, input, target, weights):
@@ -307,10 +307,10 @@ def get_loss_criterion(config):
     the 'loss' key
     :return: an instance of the loss function
     """
-    name = config.loss
-    labels = config.labels
-    ignore_labels = config.ignore_labels
-    weight = config.weight
+    name = config.loss.name
+    labels = config.dataset.labels
+    ignore_labels = config.dataset.ignore_labels
+    weight = config.loss.weight
     if weight is not None:
         weight_ = []
         for label in labels:
@@ -337,26 +337,26 @@ SUPPORTED_LOSSES = [
 
 def _create_loss(name, config, weight):
     if name == "DiceLoss":
-        return DiceLoss(activation=config.dice_activation, config=config)
+        return DiceLoss(activation=config.loss.dice_activation, config=config)
     elif name == "BCEDiceLoss":
         return BCEDiceLoss(
-            config.loss_alpha, config.loss_beta, config.dice_activation, config
+            config.loss.alpha, config.loss.beta, config.loss.dice_activation, config
         )
     elif name == "BCEPixelWiseDiceLoss":
         return BCEPixelWiseDiceLoss(
-            alpha=config.loss_alpha,
-            beta=config.loss_beta,
-            gamma=config.loss_gamma,
-            activation=config.dice_activation,
+            alpha=config.loss.alpha,
+            beta=config.loss.beta,
+            gamma=config.loss.gamma,
+            activation=config.loss.dice_activation,
             config=config
         )
     elif name == "PixelWiseCrossEntropyLoss":
         return PixelWiseCrossEntropyLoss(config, class_weights=weight)
     elif name == "PixelWiseDiceLoss":
         return PixelWiseDiceLoss(
-            config.loss_beta,
-            config.loss_gamma,
-            config.dice_activation,
+            config.loss.beta,
+            config.loss.gamma,
+            config.loss.dice_activation,
             weight=weight,
             config=config,
         )
