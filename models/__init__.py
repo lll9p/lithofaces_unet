@@ -21,6 +21,6 @@ def get_model(config):
                            num_gpus=1,
                            ch_in=config.input_channels,
                            ch_out=1,
-                           filters=(64, 1024),
+                           filters=(32, 512),
                            print_path=None)
     return model
