@@ -47,7 +47,7 @@ class Logger:
                 ):
                     # trigger save
                     if Logger.config is not None:
-                        Logger.learning_rate = Logger.config.learning_rate_current
+                        Logger.learning_rate = Logger.config.optim.learning_rate_current
                     Logger.epoch = Logger.bars["epoch"].n
                     self.save()
                     Logger.bars["train"].reset()
@@ -96,7 +96,7 @@ class Logger:
     @staticmethod
     def init(train_loader, val_loader, progress=True, config=None):
         Logger.config = config
-        Logger.iter_nums["epoch"] = config.epochs
+        Logger.iter_nums["epoch"] = config.train.epochs
         Logger.iter_nums["train"] = len(train_loader)
         Logger.iter_nums["val"] = len(val_loader)
         if progress:
