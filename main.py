@@ -28,7 +28,7 @@ class Model:
         Dataset.full_idx = None
         Dataset.dataset = None
         config = self.config
-        self.root = pathlib.Path(config.path)
+        self.root = pathlib.Path(config.dataset.path)
         if config.name is None:
             name = f"{config.dataset.name}_{config.model.name}"
             config.name = name + ("_wDS"
