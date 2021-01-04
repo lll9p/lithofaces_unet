@@ -79,7 +79,7 @@ class Model:
             batch_size=config.train.batch_size,
             pin_memory=True,
             shuffle=True,
-            num_workers=config.train.num_workers,
+            num_workers=config.dataset.num_workers,
             drop_last=True,
         )
         self.val_loader = torch.utils.data.DataLoader(
@@ -87,7 +87,7 @@ class Model:
             batch_size=config.train.batch_size,
             pin_memory=True,
             shuffle=False,
-            num_workers=config.trian.num_workers,
+            num_workers=config.dataset.num_workers,
             drop_last=False,
         )
 
