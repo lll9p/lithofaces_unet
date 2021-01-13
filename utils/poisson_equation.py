@@ -3,7 +3,7 @@ import scipy.ndimage as scind
 """https://github.com/CellProfiler/centrosome/blob/master/centrosome/filter.py"""
 
 def poisson_equation(
-    image, gradient=1, max_iter=1000, convergence=0.001, percentile=100.0
+    image, gradient=1, max_iter=100, convergence=0.01, percentile=95.0
 ):
     """Estimate the solution to the Poisson Equation
     The Poisson Equation is the solution to gradient(x) = h^2/4 and, in this
