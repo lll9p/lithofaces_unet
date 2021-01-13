@@ -1,7 +1,9 @@
 import numpy as np
 import scipy.ndimage as scind
+
+
 def poisson_equation(
-    image, gradient=1, max_iter=100, convergence=0.01, percentile=90.0
+    image, gradient=1, max_iter=1000, convergence=0.001, percentile=100.0
 ):
     """Estimate the solution to the Poisson Equation
     The Poisson Equation is the solution to gradient(x) = h^2/4 and, in this
@@ -29,14 +31,15 @@ def poisson_equation(
         #
         sub_image = image[::2, ::2]
         sub_pe = poisson_equation(
-            sub_image, gradient=gradient * 2, max_iter=max_iter, convergence=convergence
-        )
+            sub_image,
+            gradient=gradient * 2,
+            max_iter=max_iter,
+            convergence=convergence)
         coordinates = (
-            np.mgrid[0 : (sub_pe.shape[0] * 2), 0 : (sub_pe.shape[1] * 2)].astype(float)
-            / 2
-        )
+            np.mgrid[0: (sub_pe.shape[0] * 2),
+                     0: (sub_pe.shape[1] * 2)].astype(float) / 2)
         pe[
-            1 : (sub_image.shape[0] * 2 + 1), 1 : (sub_image.shape[1] * 2 + 1)
+            1: (sub_image.shape[0] * 2 + 1), 1: (sub_image.shape[1] * 2 + 1)
         ] = scind.map_coordinates(sub_pe, coordinates, order=1)
         pe[: image.shape[0], : image.shape[1]][~image] = 0
     else:
@@ -44,7 +47,7 @@ def poisson_equation(
     #
     # evaluate only at i and j within the foreground
     #
-    i, j = np.mgrid[0 : pe.shape[0], 0 : pe.shape[1]]
+    i, j = np.mgrid[0: pe.shape[0], 0: pe.shape[1]]
     mask = (i > 0) & (i < pe.shape[0] - 1) & (j > 0) & (j < pe.shape[1] - 1)
     mask[mask] = image[i[mask] - 1, j[mask] - 1]
     i = i[mask]
