@@ -232,7 +232,7 @@ def get_shape_distance(mask, distance_func=distance_transform_edt):
             # background
             continue
         indice = mask == shape_id
-        shape_distance_ = distance_func(indice)
+        shape_distance_ = distance_func(indice.astype(bool))
         shape_distance_ = shape_distance_ / shape_distance_.max()
         shape_distance += shape_distance_
     return shape_distance
@@ -252,7 +252,7 @@ def get_neighbor_distance(mask, distance_func=distance_transform_edt):
         mask_without_this_shape = mask_binary.copy()
         mask_without_this_shape[indice] = 0
         invert_dt = distance_func(
-            1 - mask_without_this_shape)
+            (1 - mask_without_this_shape).astype(bool))
         # cutting
         invert_dt[indice_] = 0.0
         # normalize
