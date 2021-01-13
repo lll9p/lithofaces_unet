@@ -82,7 +82,7 @@ def dataset_file_init(path="lithofaces.h5"):
         )
     with h5py.File(path, "w", libver="latest", swmr=True) as file:
         create_dataset(file, "images", (0, 256, 256, 3), np.dtype("uint8"))
-        create_dataset(file, "masks", (0, 256, 256), np.distance_transform_edtdtype("uint8"))
+        create_dataset(file, "masks", (0, 256, 256), np.dtype("uint8"))
         create_dataset(file, "edges", (0, 256, 256), np.dtype("uint8"))
         # create_dataset(file, "weight_maps", (0, 256, 256), np.float)
         create_dataset(file, "shape_distance", (0, 256, 256), np.float)
