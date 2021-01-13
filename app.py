@@ -51,10 +51,19 @@ def get_type(rigion, labels, mask):
     return type_
 
 
-def main(image_path, imid, model):
-    image = cv2.imread(image_path)
+def predict(image_path, imid, model):
+    image = cv2.imread(str(image_path))
+    image_name = image_path.stem
+    x,y = image.shape[:2]
+    r = 1
+    xx,yy=int(x/r),int(y/r)
+    if xx%2==1:
+        xx+=1
+    if yy%2==1:
+        yy+=1
+    image = cv2.resize(image,(yy,xx))
     input_ = normalize(image).unsqueeze(0)
-    output = model(input_)
+    output = model(input_.to("cuda"))
     output = torch.sigmoid(output).cpu()
     print(f"{time.time()-t0:.1f}-model eval complete")
     mask = torch.argmax(output[0], 0).numpy()
@@ -69,7 +78,7 @@ def main(image_path, imid, model):
     coor = peak_local_max(
         distance,
         exclude_border=False,
-        min_distance=100)
+        min_distance=45)
     mask_ = np.zeros(distance.shape, dtype=bool)
     mask_[tuple(coor.T)] = True
     markers, _ = ndimage.label(mask_)
@@ -79,6 +88,8 @@ def main(image_path, imid, model):
     font = cv2.FONT_HERSHEY_SIMPLEX
     types = ["Back", "Alite", "Blite", "Pore", "Edge"]
     stats = dict()
+    image[sobel(labels) > 0] = 0
+    np.save(f"./app/{image_name}.npy",labels)
     for rigion in props:
         if rigion.area < 300:
             continue
@@ -88,14 +99,17 @@ def main(image_path, imid, model):
         stats[type_][str(rigion.label)] = int(rigion.major_axis_length)
         # draw label
         y, x = rigion.centroid
+        if rigion_type == 1:
+            color = (0, 0, 255)
+        else:
+            color = (255, 0, 0)
         cv2.putText(image, f"{rigion.label}",
-                    (int(x), int(y)), font, 1, (0, 0, 255), 2)
-    image[sobel(labels) > 0] = 0
-    cv2.imwrite(f"./app/segmented{imid}.png", image)
-    for k, v in stats.items():
-        with open(f"./app/result-{k}.csv", "w") as f:
-            for label_id, data in v.items():
-                f.write(f"{label_id},{data}\n")
+                    (int(x), int(y)), font, 0.5, color, 2)
+    cv2.imwrite(f"./app/{image_name}.png", image)
+    # for k, v in stats.items():
+    #     with open(f"./app/result-{k}.csv", "w") as f:
+    #         for label_id, data in v.items():
+    #             f.write(f"{label_id},{data}\n")
 
 
 def show(mask, fs=(16, 12)):
@@ -114,46 +128,27 @@ def showlabel(label, fs=(16, 12)):
 if __name__ == "__main__":
     # with open("./app/fn.txt", "r") as file:
     # image_path = file.readline()
-    p = r"C:\Users\lao\Documents\Sync\Notebook\Research\Clinker Lithofacies Automation\data\segmentation\images"
-    ims = [
-        r"\041_500X130909_023.JPG",
-        r"\042_500X130909_024.JPG",
-        r"\043_500X130909_025.JPG",
-        r"\044_500X130909_026.JPG",
-        r"\045_500X130909_027.JPG",
-        r"\046_500X130910_002.JPG",
-        r"\047_500X130910_003.JPG",
-        r"\048_500X130910_004.JPG",
-        r"\049_500X130910_005.JPG",
-        r"\050_500X130910_006.JPG",
-        r"\051_500X130910_007.JPG",
-        r"\095_5000X131003_029.JPG",
-        r"\096_5000X131003_031.JPG",
-        r"\097_5000X131003_032.JPG",
-        r"\098_image_130909_001.JPG",
-        r"\099_image_130909_005.JPG",
-        r"\100_image_130909_009.JPG",
-        r"\104_image_130909_039.JPG",
-        r"\122_image_201023_002.JPG",
-        r"\123_image_201023_004.JPG",
-        r"\150_image_130911_022.JPG",
-    ]
+    p = r"C:\Users\lao\Documents\Sync\Notebook\Research\Clinker Lithofacies Automation\data\segmentation\images\\"
+    p = r"/home/lao/Notebook/Research/Clinker Lithofacies Automation/data/segmentation/images/"
     config = Config.from_yml("./app/config.yml")
+    print(config.model.name)
     # no GPU
     # cudnn.benchmark =True
     t0 = time.time()
     print("0.0-model constructing")
-    model = get_model(config).cpu()
+    model = get_model(config).cuda()
     print(f"{time.time()-t0:.1f}-model parameters loading")
     t0 = time.time()
     model.load_state_dict(
         torch.load(
             "./app/model.pth",
-            map_location=torch.device('cpu')))
+            map_location=torch.device('cuda')))
     print(f"{time.time()-t0:.1f}-model evaling")
     t0 = time.time()
     model.eval()
     torch.set_grad_enabled(False)
+    import pathlib
+    ims = list(pathlib.Path(p).glob("*.JPG"))
     with torch.no_grad():
         for i, ii in enumerate(ims):
-            main(p + ii, i, model)
+            predict(ii, i, model)

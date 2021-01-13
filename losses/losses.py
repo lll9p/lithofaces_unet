@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # COPY FROM https://github.com/wolny/pytorch-3dunet
-
+# (3) 对dice loss加log操作，可以加速收敛，当开始预测和gt比较远的时候，梯度会很大。
 
 class _DiceLoss(nn.Module):
     def __init__(self, activation="sigmoid", weight=None):

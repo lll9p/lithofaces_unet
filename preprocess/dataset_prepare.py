@@ -11,6 +11,8 @@ import cv2
 import h5py
 import numpy as np
 import scipy
+from lithofaces_unet.utils import poisson_equation
+from scipy.ndimage import distance_transform_edt
 from skimage import morphology
 # from sklearn.model_selection import KFold, train_test_split
 from tqdm.autonotebook import tqdm
@@ -100,7 +102,8 @@ def process_image(
         image_node,
         input_path="/kaggle/input/lithofaces",
         translations=None,
-        label_map=None):
+        label_map=None,
+        distance_func=distance_transform_edt):
     """
     处理一张图片节点，生成contour
     """
@@ -160,7 +163,8 @@ def process_images(
         translations,
         label_map,
         image_ranges,
-        input_path):
+        input_path,
+        distance_func=distance_transform_edt):
 
     tree = ET.parse(annotations)
     root = tree.getroot()
@@ -173,6 +177,7 @@ def process_images(
         input_path=input_path,
         translations=translations,
         label_map=label_map,
+        distance_func=distance_func
     )
 
     CPU_NUM = multiprocessing.cpu_count()
@@ -220,7 +225,7 @@ def balancewm(mask):
     return wc
 
 
-def get_shape_distance(mask):
+def get_shape_distance(mask, distance_func=distance_transform_edt):
     # calculate shape distance as described in <Cell segmentation and tracking
     # using CNN-based distancepredictions and a graph-based matching strategy>
     shape_distance = np.zeros_like(mask, dtype=np.float64)
@@ -229,13 +234,13 @@ def get_shape_distance(mask):
             # background
             continue
         indice = mask == shape_id
-        shape_distance_ = scipy.ndimage.distance_transform_edt(indice)
+        shape_distance_ = distance_func(indice)
         shape_distance_ = shape_distance_ / shape_distance_.max()
         shape_distance += shape_distance_
     return shape_distance
 
 
-def get_neighbor_distance(mask):
+def get_neighbor_distance(mask, distance_func=distance_transform_edt):
     # calculate shape distance as described in <Cell segmentation and tracking
     # using CNN-based distancepredictions and a graph-based matching strategy>
     neighbor_distance = np.zeros_like(mask, dtype=np.float64)
@@ -248,7 +253,7 @@ def get_neighbor_distance(mask):
         indice_ = mask != shape_id
         mask_without_this_shape = mask_binary.copy()
         mask_without_this_shape[indice] = 0
-        invert_dt = scipy.ndimage.distance_transform_edt(
+        invert_dt = distance_func(
             1 - mask_without_this_shape)
         # cutting
         invert_dt[indice_] = 0.0
@@ -303,7 +308,7 @@ def get_unet_border_weight_map(
         np.uint16,
     ], "Expected data type uint, it is {}".format(annotation.dtype)
     labeled_array = annotation.copy()
-    inner = scipy.ndimage.distance_transform_edt(annotation)
+    inner = distance_transform_edt(annotation)
     inner = (inner.max() - inner) / inner.max()
     inner[annotation == 0] = 0
     # if there is only one label or only background
@@ -356,7 +361,7 @@ def get_unet_border_weight_map(
             mask = np.ones_like(labeled_array)
             mask[labeled_array == index + 1] = 0
             distance_maps[:, :,
-                          index] = scipy.ndimage.distance_transform_edt(mask)
+                          index] = distance_transform_edt(mask)
     distance_maps = np.sort(distance_maps, 2)
     d1 = distance_maps[:, :, 0]
     d2 = distance_maps[:, :, 1]
@@ -372,7 +377,8 @@ def get_unet_border_weight_map(
 
 
 def split_image(result, resize_factors=[
-        i**0.5 for i in [1, 2, 3, 4]], window=256):
+        i**0.5 for i in [1, 2, 3, 4]], window=256,
+        distance_func=distance_transform_edt):
     def pad(block, pady, padx):
         # to center image or mask
         pady1 = pady // 2
@@ -437,8 +443,10 @@ def split_image(result, resize_factors=[
             # weight_map_block[edges_block.astype(bool)] = 0
             # border_wm = get_unet_border_weight_map(weight_map_block)
             # distances should calculate before padding
-            shape_distance_block = get_shape_distance(masks_block)
-            neighbor_distance_block = get_neighbor_distance(masks_block)
+            shape_distance_block = \
+                get_shape_distance(masks_block, distance_func=distance_func)
+            neighbor_distance_block = \
+                get_neighbor_distance(masks_block, distance_func=distance_func)
             if should_pad:
                 pady = window - (y_stop - y)
                 padx = window - (x_stop - x)
@@ -570,7 +578,8 @@ if __name__ == "__main__":
         translations=translations,
         label_map=label_map,
         image_ranges=image_ranges,
-        input_path=input_path)
+        input_path=input_path,
+        distance_func=poisson_equation)
     print("Splitting to train val.")
 
     print("Generating hdf5 file from Datasets.")

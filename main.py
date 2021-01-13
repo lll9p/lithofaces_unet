@@ -326,7 +326,7 @@ if __name__ == "__main__":
     # config.loss_alpha = 1.0
     config.loss.beta = 1.0
     config.loss.gamma = 250.0
-    config.device='cpu'
+    config.device='cuda'
     # if train on edges ignore all labels
     # config.ignore_labels = ["Alite", "Blite", "C3A", "Pore"]
     config.dataset.ignore_labels = ["C3A"]

@@ -15,7 +15,7 @@ defaults = dict(
     ),
     model=dict(
         name="UNet",
-        deep_supervision=True,
+        deep_supervision=False,
         num_classes=5,
         input_channels=3,
     ),
